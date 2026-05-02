@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Album Masjid & Musholla – Kec. Pilangkenceng, Kab. Madiun</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #FAFAF7; }
+    input::placeholder { color: rgba(255,255,255,.45); }
+    select { appearance: none; -webkit-appearance: none; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: #1B4332; border-radius: 3px; }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo, useEffect, useCallback } = React;
+
+    // ════════════════════════════════════════════════════════════
+    //  KONFIGURASI
+    // ════════════════════════════════════════════════════════════
+    const SHEETS_CONFIG = {
+      SPREADSHEET_ID: "1CdozmKagH4ZEOCga5v7wKMr6Pnw6Dl69aQgfgy5lQT0",
+      SHEET_NAME: "Form Responses 1",
+      API_KEY: "AIzaSyA4VRcMWoGk57JL3j-eWjnoCp6cjvzanXY",
+    };
+
+    // ════════════════════════════════════════════════════════════
+    //  MAPPING INDEX KOLOM
+    // ════════════════════════════════════════════════════════════
+    const IDX = {
+      TIMESTAMP:0, KLASIFIKASI:1, NAMA_MASJID:2, JENIS:3,
+      KECAMATAN:4, KABKOTA:5, DESA:6, ALAMAT:7, EMAIL:8, MEDSOS:9,
+      ID_SIMAS:10, AFILIASI:11, TAHUN_BERDIRI:12, SK_TAKMIR:13,
+      SK_LEVEL:14, LUAS_TANAH:15, LUAS_BANGUNAN:16,
+      NAMA_KETUA:17, WA_KETUA:18, NAMA_SEKRETARIS:19, WA_SEKRETARIS:20,
+      PENGURUS_LAIN:21, MUADZIN:22, MARBOT:23, KOORDINAT:24,
+      JAMAAH_TOTAL:25, JAMAAH_MAGHRIB:26, JAMAAH_DHUHUR:27,
+      JAMAAH_SUBUH:28, JAMAAH_JUMAT:29, MAJELIS_TAKLIM:30, REMAJA_MASJID:31,
+      STATUS_TANAH:32, NOMOR_SERTIF:33, TGL_SERTIF:34, AKTA_WAKAF:35,
+      NAMA_WAKIF:36, NAMA_NADZIR:37, FOTO_SERTIF_1:38, FOTO_SERTIF_2:39,
+      WAKAF_PRODUKTIF:40, KONDISI_BGN:41, REKENING:42, WA_BANTUAN:43,
+      KIBLAT:44, AULA:45, PERPUSTAKAAN:46, TPQ_ANAK:47,
+      PROGRAM_RAMAH:48, FOTO_DEPAN:49, FOTO_DALAM:50, FOTO_WUDHU:51,
+      FOTO_WC:52, FOTO_LAIN:53, NAMA_SURVEYOR:54, TGL_SURVEI:55,
+      FOLDER_ID:58, FOLDER_URL:59,
+      URL_FOTO_DEPAN:60, URL_FOTO_DALAM:61, URL_FOTO_WUDHU:62,
+      URL_FOTO_WC:63, URL_FOTO_LAIN:64, URL_FOTO_SERTIF:65,
+      JUMLAH_FOTO:66, STATUS_PROSES:67,
+    };
+
+    const LABEL_FORM = new Set([
+      "Dusun / RT / RW / Nama Jalan","Nama Pengurus Lainnya beserta Jabatan dan Nomor WA",
+      "Muadzin — Jumlah dan Nama","Koordinat GPS dan Link Google Maps",
+      "Jumlah Jamaah Maghrib / Isya rata-rata","Jumlah Jamaah Dhuhur / Ashar rata-rata",
+      "Jumlah Jamaah Subuh rata-rata","Jumlah Jamaah Sholat Jumat rata-rata",
+      "Remaja Masjid — Jumlah Anggota, Nama Ketua, dan Nomor WA",
+      "Nomor Sertifikat Tanah Wakaf","Nomor Akta Ikrar Wakaf (AIW)",
+      "Nama Wakif (pemberi wakaf)","Nama Nadzir (pengelola wakaf)",
+      "Wakaf Produktif / Usaha Produktif Masjid",
+      "Nomor Rekening Bantuan (atas nama lembaga/masjid)",
+      "Nomor Telepon / WA yang Bisa Dihubungi untuk Informasi Bantuan",
+      "Sertifikat Kalibrasi Arah Kiblat dari Kemenag / KUA",
+    ]);
+
+    const cv = (row, idx) => {
+      const v = row[idx];
+      if (!v) return "";
+      const s = String(v).trim();
+      return LABEL_FORM.has(s) ? "" : s;
+    };
+
+    const rowToMasjid = (row, id) => ({
+      id,
+      timestamp:      cv(row, IDX.TIMESTAMP),
+      klasifikasi:    cv(row, IDX.KLASIFIKASI),
+      namaMasjid:     cv(row, IDX.NAMA_MASJID),
+      jenis:          cv(row, IDX.JENIS),
+      kecamatan:      cv(row, IDX.KECAMATAN),
+      kabkota:        cv(row, IDX.KABKOTA),
+      desa:           cv(row, IDX.DESA),
+      alamat:         cv(row, IDX.ALAMAT),
+      email:          cv(row, IDX.EMAIL),
+      medsos:         cv(row, IDX.MEDSOS),
+      idSimas:        cv(row, IDX.ID_SIMAS),
+      afiliasi:       cv(row, IDX.AFILIASI),
+      tahunBerdiri:   cv(row, IDX.TAHUN_BERDIRI),
+      skTakmir:       cv(row, IDX.SK_TAKMIR),
+      skLevel:        cv(row, IDX.SK_LEVEL),
+      luasTanah:      cv(row, IDX.LUAS_TANAH),
+      luasBangunan:   cv(row, IDX.LUAS_BANGUNAN),
+      namaKetua:      cv(row, IDX.NAMA_KETUA),
+      waKetua:        cv(row, IDX.WA_KETUA),
+      namaSekretaris: cv(row, IDX.NAMA_SEKRETARIS),
+      waSekretaris:   cv(row, IDX.WA_SEKRETARIS),
+      pengurusLain:   cv(row, IDX.PENGURUS_LAIN),
+      muadzin:        cv(row, IDX.MUADZIN),
+      marbot:         cv(row, IDX.MARBOT),
+      koordinat:      cv(row, IDX.KOORDINAT),
+      jamaahTotal:    cv(row, IDX.JAMAAH_TOTAL),
+      jamaahMaghrib:  cv(row, IDX.JAMAAH_MAGHRIB),
+      jamaahDhuhur:   cv(row, IDX.JAMAAH_DHUHUR),
+      jamaahSubuh:    cv(row, IDX.JAMAAH_SUBUH),
+      jamaahJumat:    cv(row, IDX.JAMAAH_JUMAT),
+      majelisTaklim:  cv(row, IDX.MAJELIS_TAKLIM),
+      remasjid:       cv(row, IDX.REMAJA_MASJID),
+      statusTanah:    cv(row, IDX.STATUS_TANAH),
+      nomorSertif:    cv(row, IDX.NOMOR_SERTIF),
+      tglSertif:      cv(row, IDX.TGL_SERTIF),
+      aktaWakaf:      cv(row, IDX.AKTA_WAKAF),
+      namaWakif:      cv(row, IDX.NAMA_WAKIF),
+      namaNadzir:     cv(row, IDX.NAMA_NADZIR),
+      wakafProduktif: cv(row, IDX.WAKAF_PRODUKTIF),
+      kondisiBgn:     cv(row, IDX.KONDISI_BGN),
+      rekening:       cv(row, IDX.REKENING),
+      waBantuan:      cv(row, IDX.WA_BANTUAN),
+      kiblat:         cv(row, IDX.KIBLAT),
+      aula:           cv(row, IDX.AULA),
+      perpustakaan:   cv(row, IDX.PERPUSTAKAAN),
+      tpqAnak:        cv(row, IDX.TPQ_ANAK),
+      programRamah:   cv(row, IDX.PROGRAM_RAMAH),
+      namaSurveyor:   cv(row, IDX.NAMA_SURVEYOR),
+      tglSurvei:      cv(row, IDX.TGL_SURVEI),
+      folderUrl:      cv(row, IDX.FOLDER_URL),
+      urlFotoDepan:   cv(row, IDX.URL_FOTO_DEPAN),
+      urlFotoDalam:   cv(row, IDX.URL_FOTO_DALAM),
+      urlFotoWudhu:   cv(row, IDX.URL_FOTO_WUDHU),
+      urlFotoWC:      cv(row, IDX.URL_FOTO_WC),
+      urlFotoLain:    cv(row, IDX.URL_FOTO_LAIN),
+      urlFotoSertif:  cv(row, IDX.URL_FOTO_SERTIF),
+      jumlahFoto:     cv(row, IDX.JUMLAH_FOTO),
+      statusProses:   cv(row, IDX.STATUS_PROSES),
+      fotoUtama:      cv(row, IDX.URL_FOTO_DEPAN).split(",")[0].trim(),
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  HOOK: FETCH DATA
+    // ════════════════════════════════════════════════════════════
+    function useSheetData() {
+      const [data,    setData]    = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [error,   setError]   = useState(null);
+      const [lastSync,setLastSync]= useState(null);
+
+      const fetchData = useCallback(async () => {
+        setLoading(true); setError(null);
+        try {
+          const range = encodeURIComponent(`${SHEETS_CONFIG.SHEET_NAME}!A2:BQ`);
+          const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_CONFIG.SPREADSHEET_ID}/values/${range}?key=${SHEETS_CONFIG.API_KEY}`;
+          const res   = await fetch(url);
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err?.error?.message || "Gagal mengambil data dari Sheets");
+          }
+          const json = await res.json();
+          const rows = json.values || [];
+          setData(rows.map((row, i) => rowToMasjid(row, i + 1)));
+          setLastSync(new Date());
+        } catch(e) {
+          setError(e.message);
+        } finally {
+          setLoading(false);
+        }
+      }, []);
+
+      useEffect(() => { fetchData(); }, [fetchData]);
+      return { data, loading, error, lastSync, refetch: fetchData };
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  KOMPONEN: BADGE KONDISI
+    // ════════════════════════════════════════════════════════════
+    const KONDISI_STYLE = {
+      "Baik":         { bg:"#dcfce7", color:"#15803d", dot:"#22c55e" },
+      "Sedang":       { bg:"#fef9c3", color:"#a16207", dot:"#eab308" },
+      "Rusak Ringan": { bg:"#ffedd5", color:"#c2410c", dot:"#f97316" },
+      "Rusak Berat":  { bg:"#fee2e2", color:"#b91c1c", dot:"#ef4444" },
+    };
+
+    function KondisiBadge({ kondisi }) {
+      const s = KONDISI_STYLE[kondisi] || { bg:"#f3f4f6", color:"#6b7280", dot:"#9ca3af" };
+      return (
+        <span style={{ display:"inline-flex", alignItems:"center", gap:5,
+          background:s.bg, color:s.color, fontSize:11, fontWeight:600,
+          padding:"3px 9px", borderRadius:20 }}>
+          <span style={{ width:6, height:6, borderRadius:"50%", background:s.dot, display:"inline-block" }}/>
+          {kondisi || "—"}
+        </span>
+      );
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  KOMPONEN: ACCORDION
+    // ════════════════════════════════════════════════════════════
+    function AccordionSeksi({ icon, judul, badge, children, defaultOpen=false }) {
+      const [open, setOpen] = useState(defaultOpen);
+      return (
+        <div style={{ borderBottom:"1px solid #e2d9c8" }}>
+          <button onClick={() => setOpen(!open)} style={{
+            width:"100%", display:"flex", alignItems:"center", gap:12,
+            padding:"14px 20px", background: open ? "#f8f4ed" : "white",
+            border:"none", cursor:"pointer", textAlign:"left", transition:"background .2s",
+          }}>
+            <span style={{
+              width:32, height:32, borderRadius:"50%", flexShrink:0,
+              background: open ? "#1B4332" : "#f0e8d8",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:15, transition:"background .2s",
+            }}>{icon}</span>
+            <span style={{ flex:1, fontFamily:"'Playfair Display',serif",
+              fontSize:14, fontWeight:700, color:"#1B4332" }}>{judul}</span>
+            {badge && <span style={{ fontSize:11, padding:"2px 8px", borderRadius:20,
+              background:"#e8f5e9", color:"#1B4332", fontWeight:600, marginRight:6 }}>{badge}</span>}
+            <span style={{ color:"#1B4332", transform: open?"rotate(180deg)":"rotate(0deg)",
+              transition:"transform .25s", fontSize:12 }}>▼</span>
+          </button>
+          <div style={{ maxHeight: open ? 1400 : 0, overflow:"hidden", transition:"max-height .35s ease" }}>
+            <div style={{ padding:"4px 20px 18px 64px" }}>{children}</div>
+          </div>
+        </div>
+      );
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  KOMPONEN: FIELD ROW
+    // ════════════════════════════════════════════════════════════
+    function FR({ label, value, mono=false, full=false }) {
+      if (!value) return null;
+      return (
+        <div style={{ display:"flex", gap:10, marginBottom:7, alignItems:"flex-start",
+          flexDirection: full ? "column" : "row" }}>
+          <span style={{ fontSize:12, color:"#9ca3af", minWidth:full?0:136,
+            flexShrink:0, paddingTop:1 }}>{label}</span>
+          <span style={{ fontSize:13, color:"#1a1a1a", lineHeight:1.5, flex:1,
+            fontFamily: mono?"'Courier New',monospace":"inherit",
+            wordBreak:"break-word" }}>{value}</span>
+        </div>
+      );
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  KOMPONEN: GALERI FOTO
+    // ════════════════════════════════════════════════════════════
+    function FotoGaleri({ label, urlString, icon }) {
+      const urls = (urlString || "").split(",").map(u => u.trim()).filter(Boolean);
+      if (urls.length === 0) return null;
+      return (
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontSize:12, color:"#9ca3af", marginBottom:6 }}>
+            {icon} {label} ({urls.length} foto)
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(100px,1fr))", gap:6 }}>
+            {urls.map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noreferrer"
+                style={{ display:"block", borderRadius:8, overflow:"hidden",
+                  aspectRatio:"1", background:"#f3f4f6", border:"1px solid #e5e7eb" }}>
+                <img src={url} alt={label + " " + (i+1)}
+                  style={{ width:"100%", height:"100%", objectFit:"cover" }}
+                  onError={e => { e.target.style.display="none"; }}
+                />
+              </a>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  KOMPONEN: MODAL DETAIL
+    // ════════════════════════════════════════════════════════════
+    function ModalDetail({ masjid, onClose }) {
+      if (!masjid) return null;
+      const isMusholla = masjid.klasifikasi?.toUpperCase().includes("MUSHOLLA");
+      const wakafBersertif = masjid.statusTanah?.includes("Bersertifikat");
+      return (
+        <div onClick={onClose} style={{
+          position:"fixed", inset:0, zIndex:1000,
+          background:"rgba(15,30,20,0.65)", backdropFilter:"blur(6px)",
+          display:"flex", alignItems:"flex-start", justifyContent:"center",
+          padding:"16px", overflowY:"auto",
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            width:"100%", maxWidth:700, background:"white",
+            borderRadius:18, overflow:"hidden", margin:"auto",
+            boxShadow:"0 32px 80px rgba(0,0,0,0.3)",
+            fontFamily:"'DM Sans',sans-serif",
+          }}>
+            {/* Header foto */}
+            <div style={{ position:"relative", height:220, background:"#1B4332", overflow:"hidden" }}>
+              {masjid.fotoUtama ? (
+                <img src={masjid.fotoUtama} alt={masjid.namaMasjid}
+                  style={{ width:"100%", height:"100%", objectFit:"cover", opacity:.7 }}
+                  onError={e => { e.target.style.display="none"; }}
+                />
+              ) : (
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
+                  height:"100%", fontSize:64, opacity:.2 }}>🕌</div>
+              )}
+              <div style={{ position:"absolute", inset:0,
+                background:"linear-gradient(to top,rgba(27,67,50,.95) 0%,rgba(27,67,50,.3) 60%,transparent 100%)"
+              }}/>
+              <button onClick={onClose} style={{
+                position:"absolute", top:12, right:12, width:32, height:32,
+                borderRadius:"50%", background:"rgba(255,255,255,.15)",
+                border:"1px solid rgba(255,255,255,.2)", color:"white",
+                cursor:"pointer", fontSize:16, display:"flex",
+                alignItems:"center", justifyContent:"center", backdropFilter:"blur(4px)",
+              }}>×</button>
+              <div style={{ position:"absolute", bottom:0, left:0, right:0, padding:"0 20px 18px" }}>
+                <div style={{ fontSize:10, color:"#D4A853", fontWeight:700,
+                  letterSpacing:"1px", marginBottom:4 }}>
+                  {isMusholla ? "MUSHOLLA" : "MASJID"} · {masjid.jenis?.toUpperCase() || masjid.klasifikasi?.toUpperCase()}
+                </div>
+                <div style={{ fontFamily:"'Playfair Display',serif", fontSize:20,
+                  fontWeight:700, color:"white", lineHeight:1.2, marginBottom:4 }}>
+                  {masjid.namaMasjid}
+                </div>
+                <div style={{ fontSize:12, color:"rgba(255,255,255,.75)",
+                  display:"flex", alignItems:"center", gap:5 }}>
+                  📍 {masjid.desa}, Kec. {masjid.kecamatan}, {masjid.kabkota}
+                </div>
+              </div>
+            </div>
+            {/* Statistik ringkas */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)",
+              borderBottom:"1px solid #e2d9c8" }}>
+              {[
+                { lbl:"Berdiri", val: masjid.tahunBerdiri || "—" },
+                { lbl:"Jamaah Jumat", val: masjid.jamaahJumat ? "±"+masjid.jamaahJumat : "—" },
+                { lbl:"Kondisi", val: <KondisiBadge kondisi={masjid.kondisiBgn}/> },
+                { lbl:"Status Tanah", val: wakafBersertif ? "✅ Bersertifikat" : (masjid.statusTanah?.split("—")[0].trim() || "—") },
+              ].map((s,i) => (
+                <div key={i} style={{ padding:"12px 10px", textAlign:"center",
+                  borderRight: i<3 ? "1px solid #e2d9c8" : "none" }}>
+                  <div style={{ fontSize:10, color:"#9ca3af", marginBottom:3 }}>{s.lbl}</div>
+                  <div style={{ fontSize:12, fontWeight:600, color:"#1B4332" }}>{s.val}</div>
+                </div>
+              ))}
+            </div>
+            {/* Accordion seksi */}
+            <AccordionSeksi icon="🕌" judul="Identitas & Lokasi" defaultOpen>
+              <FR label="Nama" value={masjid.namaMasjid}/>
+              <FR label="Jenis" value={[masjid.klasifikasi, masjid.jenis].filter(Boolean).join(" — ")}/>
+              <FR label="ID SIMAS" value={masjid.idSimas} mono/>
+              <FR label="Afiliasi" value={masjid.afiliasi}/>
+              <FR label="Tahun Berdiri" value={masjid.tahunBerdiri}/>
+              <FR label="Alamat" value={masjid.alamat}/>
+              <FR label="Koordinat GPS" value={masjid.koordinat} mono/>
+              {masjid.koordinat && (
+                <div style={{ marginTop:4, marginBottom:8 }}>
+                  <a href={`https://maps.google.com/?q=${masjid.koordinat}`}
+                    target="_blank" rel="noreferrer"
+                    style={{ fontSize:12, color:"#1B4332", fontWeight:500,
+                      textDecoration:"none", padding:"4px 10px",
+                      background:"#e8f5e9", borderRadius:20, display:"inline-block" }}>
+                    🗺️ Buka di Google Maps
+                  </a>
+                </div>
+              )}
+              <FR label="Email" value={masjid.email}/>
+              <FR label="Media Sosial" value={masjid.medsos}/>
+            </AccordionSeksi>
+            <AccordionSeksi icon="📋" judul="Administrasi"
+              badge={masjid.skTakmir && masjid.skTakmir !== "Tidak punya SK" ? "Ada SK" : null}>
+              <FR label="SK Takmir" value={masjid.skTakmir}/>
+              <FR label="Mengetahui" value={masjid.skLevel}/>
+              <FR label="Luas Tanah" value={masjid.luasTanah ? masjid.luasTanah+" m²" : ""}/>
+              <FR label="Luas Bangunan" value={masjid.luasBangunan ? masjid.luasBangunan+" m²" : ""}/>
+            </AccordionSeksi>
+            <AccordionSeksi icon="👥" judul="Pengurus & Petugas">
+              <FR label="Ketua Takmir" value={masjid.namaKetua}/>
+              <FR label="WA Ketua" value={masjid.waKetua !== "Tidak diizinkan" ? masjid.waKetua : ""}/>
+              <FR label="Sekretaris" value={masjid.namaSekretaris}/>
+              <FR label="Pengurus Lain" value={masjid.pengurusLain}/>
+              <FR label="Muadzin" value={masjid.muadzin}/>
+              <FR label="Marbot" value={masjid.marbot}/>
+            </AccordionSeksi>
+            <AccordionSeksi icon="📊" judul="Data Jamaah & Ibadah">
+              {masjid.jamaahTotal && (
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)",
+                  gap:8, marginBottom:14 }}>
+                  {[
+                    { label:"Total Jamaah", val: masjid.jamaahTotal+" org" },
+                    { label:"Jamaah Jumat", val: masjid.jamaahJumat ? "±"+masjid.jamaahJumat+" org" : "—" },
+                    { label:"Maghrib/Isya", val: masjid.jamaahMaghrib ? "±"+masjid.jamaahMaghrib+" org" : "—" },
+                    { label:"Subuh",        val: masjid.jamaahSubuh   ? "±"+masjid.jamaahSubuh  +" org" : "—" },
+                  ].map((s,i) => (
+                    <div key={i} style={{ background:"#f8faf8", borderRadius:8,
+                      padding:"8px 12px", textAlign:"center" }}>
+                      <div style={{ fontSize:10, color:"#9ca3af" }}>{s.label}</div>
+                      <div style={{ fontSize:14, fontWeight:600, color:"#1B4332", marginTop:2 }}>{s.val}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <FR label="Majelis Taklim" value={masjid.majelisTaklim} full/>
+              <FR label="Remaja Masjid" value={masjid.remasjid}/>
+            </AccordionSeksi>
+            <AccordionSeksi icon="🏠" judul="Status Tanah & Wakaf"
+              badge={wakafBersertif ? "✅ Bersertifikat" : null}>
+              <FR label="Status Tanah" value={masjid.statusTanah}/>
+              <FR label="No. Sertifikat" value={masjid.nomorSertif} mono/>
+              <FR label="Tgl. Sertifikat" value={masjid.tglSertif}/>
+              <FR label="Akta Wakaf" value={masjid.aktaWakaf} mono/>
+              <FR label="Nama Wakif" value={masjid.namaWakif}/>
+              <FR label="Nama Nadzir" value={masjid.namaNadzir}/>
+              <FR label="Wakaf Produktif" value={masjid.wakafProduktif}/>
+            </AccordionSeksi>
+            <AccordionSeksi icon="🏗️" judul="Fasilitas & Kegiatan">
+              <div style={{ marginBottom:10 }}><KondisiBadge kondisi={masjid.kondisiBgn}/></div>
+              <FR label="Kalibrasi Kiblat" value={masjid.kiblat}/>
+              <FR label="Aula / R. Pertemuan" value={masjid.aula}/>
+              <FR label="Perpustakaan" value={masjid.perpustakaan}/>
+              <FR label="TPQ Anak-Remaja" value={masjid.tpqAnak}/>
+              <FR label="Program Ramah" value={masjid.programRamah} full/>
+              <FR label="Rekening Bantuan" value={masjid.rekening} mono/>
+              <FR label="WA Bantuan" value={masjid.waBantuan}/>
+            </AccordionSeksi>
+            <AccordionSeksi icon="📷" judul="Foto Dokumentasi"
+              badge={masjid.jumlahFoto ? masjid.jumlahFoto+" foto" : null}>
+              <FotoGaleri label="Foto Depan" urlString={masjid.urlFotoDepan} icon="🏛️"/>
+              <FotoGaleri label="Foto Dalam" urlString={masjid.urlFotoDalam} icon="🕌"/>
+              <FotoGaleri label="Foto Wudhu" urlString={masjid.urlFotoWudhu} icon="💧"/>
+              <FotoGaleri label="Foto WC" urlString={masjid.urlFotoWC} icon="🚿"/>
+              <FotoGaleri label="Foto Lainnya" urlString={masjid.urlFotoLain} icon="📸"/>
+              <FotoGaleri label="Foto Sertifikat" urlString={masjid.urlFotoSertif} icon="📄"/>
+              {masjid.folderUrl && (
+                <a href={masjid.folderUrl} target="_blank" rel="noreferrer"
+                  style={{ display:"inline-flex", alignItems:"center", gap:6,
+                    fontSize:12, color:"#1B4332", fontWeight:500, textDecoration:"none",
+                    padding:"6px 12px", background:"#e8f5e9", borderRadius:20, marginTop:8 }}>
+                  📁 Buka Semua Foto di Drive
+                </a>
+              )}
+              <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid #e2d9c8" }}>
+                <FR label="Surveyor" value={masjid.namaSurveyor}/>
+                <FR label="Tgl. Survei" value={masjid.tglSurvei}/>
+              </div>
+            </AccordionSeksi>
+          </div>
+        </div>
+      );
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  KOMPONEN: KARTU MASJID
+    // ════════════════════════════════════════════════════════════
+    function KartuMasjid({ masjid, onClick }) {
+      const [hover, setHover] = useState(false);
+      const isMusholla = masjid.klasifikasi?.toUpperCase().includes("MUSHOLLA");
+      return (
+        <div onClick={() => onClick(masjid)}
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
+          style={{
+            background:"white", borderRadius:14, overflow:"hidden",
+            cursor:"pointer", border:"1px solid #e8e0d0",
+            boxShadow: hover ? "0 10px 32px rgba(27,67,50,.15)" : "0 2px 12px rgba(0,0,0,.06)",
+            transform: hover ? "translateY(-4px)" : "translateY(0)",
+            transition:"all .22s ease",
+            fontFamily:"'DM Sans',sans-serif",
+          }}>
+          <div style={{ position:"relative", height:176, background:"#e8e0d0", overflow:"hidden" }}>
+            {masjid.fotoUtama ? (
+              <img src={masjid.fotoUtama} alt={masjid.namaMasjid}
+                style={{ width:"100%", height:"100%", objectFit:"cover",
+                  transform: hover ? "scale(1.05)" : "scale(1)", transition:"transform .4s ease" }}
+                onError={e => { e.target.style.display="none"; }}
+              />
+            ) : (
+              <div style={{ width:"100%", height:"100%", display:"flex",
+                alignItems:"center", justifyContent:"center", fontSize:52, opacity:.25 }}>🕌</div>
+            )}
+            <div style={{ position:"absolute", inset:0,
+              background:"linear-gradient(to top,rgba(27,67,50,.5) 0%,transparent 60%)" }}/>
+            <div style={{ position:"absolute", top:10, left:10,
+              background:"rgba(27,67,50,.85)", backdropFilter:"blur(4px)",
+              borderRadius:20, padding:"3px 10px",
+              fontSize:10, fontWeight:700, color:"#D4A853", letterSpacing:".5px" }}>
+              {isMusholla ? "MUSHOLLA" : "MASJID"}
+            </div>
+            <div style={{ position:"absolute", top:10, right:10 }}>
+              <KondisiBadge kondisi={masjid.kondisiBgn}/>
+            </div>
+            {masjid.jumlahFoto && Number(masjid.jumlahFoto) > 0 && (
+              <div style={{ position:"absolute", bottom:8, right:10,
+                fontSize:11, color:"rgba(255,255,255,.85)",
+                display:"flex", alignItems:"center", gap:3 }}>
+                📷 {masjid.jumlahFoto} foto
+              </div>
+            )}
+          </div>
+          <div style={{ padding:"12px 14px" }}>
+            <div style={{ fontFamily:"'Playfair Display',serif", fontSize:15,
+              fontWeight:700, color:"#1B4332", lineHeight:1.3, marginBottom:3 }}>
+              {masjid.namaMasjid}
+            </div>
+            <div style={{ fontSize:11, color:"#9ca3af", marginBottom:9,
+              display:"flex", alignItems:"center", gap:4 }}>
+              📍 {masjid.desa} · {masjid.tahunBerdiri || "—"}
+            </div>
+            <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:10 }}>
+              {masjid.afiliasi?.includes("NU") && (
+                <span style={{ fontSize:10, padding:"2px 7px", borderRadius:20,
+                  background:"#ecfdf5", color:"#047857", fontWeight:600 }}>NU</span>
+              )}
+              {masjid.afiliasi?.includes("Muhammadiyah") && (
+                <span style={{ fontSize:10, padding:"2px 7px", borderRadius:20,
+                  background:"#eff6ff", color:"#1d4ed8", fontWeight:600 }}>Muhammadiyah</span>
+              )}
+              {masjid.statusTanah?.includes("Bersertifikat") && (
+                <span style={{ fontSize:10, padding:"2px 7px", borderRadius:20,
+                  background:"#f0fdf4", color:"#166534", fontWeight:600 }}>Wakaf ✓</span>
+              )}
+              {masjid.tpqAnak && masjid.tpqAnak.toLowerCase().startsWith("ada") && (
+                <span style={{ fontSize:10, padding:"2px 7px", borderRadius:20,
+                  background:"#fdf4ff", color:"#7e22ce", fontWeight:600 }}>TPQ</span>
+              )}
+              {masjid.kondisiBgn?.includes("Rusak") && (
+                <span style={{ fontSize:10, padding:"2px 7px", borderRadius:20,
+                  background:"#fff7ed", color:"#c2410c", fontWeight:600 }}>⚠️ Perlu Perhatian</span>
+              )}
+            </div>
+            <div style={{ display:"flex", justifyContent:"space-between",
+              alignItems:"center", paddingTop:8, borderTop:"1px solid #f3f4f6" }}>
+              <div style={{ fontSize:11, color:"#9ca3af" }}>
+                👥 Jumat: {masjid.jamaahJumat ? "±"+masjid.jamaahJumat : "—"}
+              </div>
+              <span style={{ fontSize:11, color:"#1B4332", fontWeight:600 }}>Detail →</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  KOMPONEN: SKELETON
+    // ════════════════════════════════════════════════════════════
+    function Skeleton() {
+      return (
+        <div style={{ display:"grid",
+          gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:18 }}>
+          {[1,2,3,4,5,6].map(i => (
+            <div key={i} style={{ background:"white", borderRadius:14,
+              overflow:"hidden", border:"1px solid #e8e0d0" }}>
+              <div style={{ height:176, background:"linear-gradient(90deg,#f0ebe0 25%,#e8e0d0 50%,#f0ebe0 75%)",
+                backgroundSize:"200% 100%", animation:"shimmer 1.5s infinite" }}/>
+              <div style={{ padding:"12px 14px" }}>
+                {[80,60,90].map((w,j) => (
+                  <div key={j} style={{ height:12, background:"#f0ebe0",
+                    borderRadius:6, marginBottom:8, width:w+"%" }}/>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  APP UTAMA
+    // ════════════════════════════════════════════════════════════
+    function AlbumMasjid() {
+      const { data, loading, error, lastSync, refetch } = useSheetData();
+      const [search,        setSearch]        = useState("");
+      const [filterDesa,    setFilterDesa]    = useState("");
+      const [filterKlas,    setFilterKlas]    = useState("");
+      const [filterKondisi, setFilterKondisi] = useState("");
+      const [selected,      setSelected]      = useState(null);
+      const [showFilter,    setShowFilter]    = useState(false);
+
+      const desaList    = useMemo(() => [...new Set(data.map(m => m.desa).filter(Boolean))].sort(), [data]);
+      const klasList    = useMemo(() => [...new Set(data.map(m => m.klasifikasi).filter(Boolean))].sort(), [data]);
+      const kondisiList = ["Baik","Sedang","Rusak Ringan","Rusak Berat"];
+
+      const filtered = useMemo(() => data.filter(m => {
+        const q = search.toLowerCase();
+        if (q && !m.namaMasjid.toLowerCase().includes(q) && !m.desa.toLowerCase().includes(q)) return false;
+        if (filterDesa    && m.desa        !== filterDesa)    return false;
+        if (filterKlas    && m.klasifikasi !== filterKlas)    return false;
+        if (filterKondisi && m.kondisiBgn  !== filterKondisi) return false;
+        if (m.statusProses && m.statusProses !== "Selesai")   return false;
+        return true;
+      }), [data, search, filterDesa, filterKlas, filterKondisi]);
+
+      const activeFilters = [filterDesa, filterKlas, filterKondisi].filter(Boolean).length;
+      const reset = () => { setSearch(""); setFilterDesa(""); setFilterKlas(""); setFilterKondisi(""); };
+      const totalMasjid    = data.filter(m => !m.klasifikasi?.toUpperCase().includes("MUSHOLLA")).length;
+      const totalMusholla  = data.filter(m =>  m.klasifikasi?.toUpperCase().includes("MUSHOLLA")).length;
+      const perluPerhatian = data.filter(m => m.kondisiBgn?.includes("Rusak")).length;
+
+      return (
+        <div style={{ minHeight:"100vh", background:"#FAFAF7", fontFamily:"'DM Sans',sans-serif" }}>
+          {/* HEADER */}
+          <header style={{ background:"#1B4332", position:"sticky", top:0, zIndex:100,
+            boxShadow:"0 2px 20px rgba(27,67,50,.4)" }}>
+            <div style={{ height:3, background:
+              "repeating-linear-gradient(90deg,#D4A853 0,#D4A853 8px,transparent 8px,transparent 16px,#D4A853 16px,#D4A853 22px,transparent 22px,transparent 30px)" }}/>
+            <div style={{ maxWidth:1120, margin:"0 auto", padding:"12px 20px",
+              display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:160 }}>
+                <div style={{ width:38, height:38, borderRadius:10,
+                  background:"rgba(212,168,83,.2)", border:"1px solid rgba(212,168,83,.35)",
+                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>🕌</div>
+                <div>
+                  <div style={{ fontFamily:"'Playfair Display',serif", fontSize:15,
+                    fontWeight:700, color:"white", lineHeight:1.1 }}>Album Masjid</div>
+                  <div style={{ fontSize:10, color:"rgba(212,168,83,.8)", letterSpacing:".5px" }}>
+                    KEC. PILANGKENCENG · KAB. MADIUN
+                  </div>
+                </div>
+              </div>
+              <div style={{ position:"relative", flex:1, maxWidth:340 }}>
+                <span style={{ position:"absolute", left:11, top:"50%",
+                  transform:"translateY(-50%)", fontSize:14 }}>🔍</span>
+                <input value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder="Cari nama masjid atau desa..."
+                  style={{ width:"100%", padding:"8px 12px 8px 34px",
+                    borderRadius:24, border:"1px solid rgba(255,255,255,.15)",
+                    background:"rgba(255,255,255,.1)", color:"white",
+                    fontSize:13, outline:"none" }}
+                />
+              </div>
+              <button onClick={() => setShowFilter(!showFilter)} style={{
+                display:"flex", alignItems:"center", gap:6, padding:"7px 14px",
+                borderRadius:24, border:"1px solid rgba(212,168,83,.4)",
+                background: activeFilters > 0 ? "#D4A853" : "rgba(212,168,83,.12)",
+                color: activeFilters > 0 ? "#1B4332" : "#D4A853",
+                cursor:"pointer", fontSize:12, fontWeight:600, transition:"all .2s",
+              }}>
+                ⚙ Filter {activeFilters > 0 && `(${activeFilters})`}
+              </button>
+              <button onClick={refetch} disabled={loading} style={{
+                padding:"7px 12px", borderRadius:24,
+                border:"1px solid rgba(255,255,255,.2)",
+                background:"rgba(255,255,255,.08)", color:"rgba(255,255,255,.8)",
+                cursor: loading ? "not-allowed" : "pointer",
+                fontSize:12, transition:"all .2s",
+              }}>
+                {loading ? "⏳" : "🔄"} Sinkron
+              </button>
+            </div>
+          </header>
+
+          {/* FILTER PANEL */}
+          <div style={{ background:"white", borderBottom:"1px solid #e8e0d0",
+            maxHeight: showFilter ? 160 : 0, overflow:"hidden", transition:"max-height .3s ease" }}>
+            <div style={{ maxWidth:1120, margin:"0 auto", padding:"14px 20px",
+              display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
+              {[
+                { label:"Desa", value:filterDesa, set:setFilterDesa,
+                  opts:[["","Semua Desa"], ...desaList.map(d => [d,d])] },
+                { label:"Klasifikasi", value:filterKlas, set:setFilterKlas,
+                  opts:[["","Semua Klasifikasi"], ...klasList.map(k => [k,k])] },
+                { label:"Kondisi", value:filterKondisi, set:setFilterKondisi,
+                  opts:[["","Semua Kondisi"], ...kondisiList.map(k => [k,k])] },
+              ].map(f => (
+                <div key={f.label} style={{ position:"relative" }}>
+                  <span style={{ position:"absolute", right:10, top:"50%",
+                    transform:"translateY(-50%)", fontSize:11, pointerEvents:"none",
+                    color:"#6b7280" }}>▼</span>
+                  <select value={f.value} onChange={e => f.set(e.target.value)} style={{
+                    padding:"7px 28px 7px 12px", borderRadius:8, fontSize:13,
+                    border:"1px solid #e8e0d0", background:"white", color:"#374151",
+                    cursor:"pointer", outline:"none", minWidth:150,
+                  }}>
+                    {f.opts.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+              ))}
+              {activeFilters > 0 && (
+                <button onClick={reset} style={{ padding:"7px 14px", borderRadius:8,
+                  border:"1px solid #fca5a5", background:"#fef2f2",
+                  color:"#dc2626", fontSize:13, cursor:"pointer", fontWeight:500 }}>
+                  ✕ Reset
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* MAIN */}
+          <main style={{ maxWidth:1120, margin:"0 auto", padding:"20px" }}>
+            <div style={{ display:"flex", justifyContent:"space-between",
+              alignItems:"center", marginBottom:18, flexWrap:"wrap", gap:10 }}>
+              <div>
+                <div style={{ fontFamily:"'Playfair Display',serif", fontSize:19,
+                  fontWeight:700, color:"#1B4332" }}>
+                  Direktori Masjid & Musholla
+                </div>
+                <div style={{ fontSize:12, color:"#9ca3af", marginTop:2 }}>
+                  {loading ? "Memuat data..." : (
+                    <>Menampilkan <strong style={{ color:"#1B4332" }}>{filtered.length}</strong> dari {data.length} data</>
+                  )}
+                  {lastSync && !loading && (
+                    <span style={{ marginLeft:8, color:"#d1d5db" }}>
+                      · Diperbarui {lastSync.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:12, fontSize:12 }}>
+                <span style={{ color:"#1B4332", fontWeight:500 }}>🕌 {totalMasjid} Masjid</span>
+                <span style={{ color:"#6b7280" }}>🏠 {totalMusholla} Musholla</span>
+                {perluPerhatian > 0 && (
+                  <span style={{ color:"#c2410c", fontWeight:500 }}>⚠️ {perluPerhatian} Perlu Perhatian</span>
+                )}
+              </div>
+            </div>
+
+            {error && (
+              <div style={{ background:"#fef2f2", border:"1px solid #fca5a5",
+                borderRadius:12, padding:"16px 20px", marginBottom:20,
+                color:"#dc2626", fontSize:13 }}>
+                <strong>Gagal memuat data:</strong> {error}
+                <div style={{ marginTop:6, fontSize:12, color:"#9ca3af" }}>
+                  Pastikan SPREADSHEET_ID dan API_KEY sudah benar, dan Google Sheets API sudah diaktifkan.
+                </div>
+                <button onClick={refetch} style={{ marginTop:10, padding:"6px 14px",
+                  borderRadius:8, border:"1px solid #fca5a5", background:"white",
+                  color:"#dc2626", fontSize:12, cursor:"pointer" }}>
+                  🔄 Coba Lagi
+                </button>
+              </div>
+            )}
+
+            {loading && <Skeleton/>}
+
+            {!loading && !error && filtered.length === 0 && (
+              <div style={{ textAlign:"center", padding:"60px 20px", color:"#9ca3af" }}>
+                <div style={{ fontSize:48, marginBottom:12 }}>🔍</div>
+                <div style={{ fontSize:16, fontWeight:500, marginBottom:4 }}>Tidak ditemukan</div>
+                <div style={{ fontSize:13 }}>Coba ubah kata kunci atau filter</div>
+                <button onClick={reset} style={{ marginTop:14, padding:"8px 20px",
+                  borderRadius:8, border:"none", background:"#1B4332",
+                  color:"white", fontSize:13, cursor:"pointer" }}>Reset Pencarian</button>
+              </div>
+            )}
+
+            {!loading && !error && filtered.length > 0 && (
+              <div style={{ display:"grid",
+                gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:16 }}>
+                {filtered.map(m => (
+                  <KartuMasjid key={m.id} masjid={m} onClick={setSelected}/>
+                ))}
+              </div>
+            )}
+
+            <div style={{ marginTop:48, paddingTop:20, borderTop:"1px solid #e8e0d0",
+              textAlign:"center", fontSize:11, color:"#9ca3af", lineHeight:1.8 }}>
+              Direktori Masjid & Musholla · Kecamatan Pilangkenceng, Kabupaten Madiun<br/>
+              Kerjasama: KUA Kec. Pilangkenceng · BKM · PW DMI · APRI & IPARI · Kanwil Kemenag Jatim
+            </div>
+          </main>
+
+          {selected && <ModalDetail masjid={selected} onClose={() => setSelected(null)}/>}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<AlbumMasjid/>);
+  </script>
+</body>
+</html>
