@@ -714,6 +714,258 @@ function cetakProfil(masjid){
   setTimeout(()=>{pa.style.display="none";pa.innerHTML="";},1500);
 }
 
+// ── TAB KIBLAT ──
+function TabKiblat(){
+  const KA_LAT=21.4225,KA_LNG=39.8263;
+  const DEF_LAT=-7.6101,DEF_LNG=111.4926;
+
+  // ── Kalkulator Arah Kiblat ──
+  const[kLat,setKLat]=useState(DEF_LAT.toString());
+  const[kLng,setKLng]=useState(DEF_LNG.toString());
+  const[kResult,setKResult]=useState(null);
+
+  const hitungKiblat=()=>{
+    const lat=parseFloat(kLat),lng=parseFloat(kLng);
+    if(isNaN(lat)||isNaN(lng))return;
+    const dLng=(KA_LNG-lng)*Math.PI/180;
+    const latR=lat*Math.PI/180,kaLatR=KA_LAT*Math.PI/180;
+    const y=Math.sin(dLng)*Math.cos(kaLatR);
+    const x=Math.cos(latR)*Math.sin(kaLatR)-Math.sin(latR)*Math.cos(kaLatR)*Math.cos(dLng);
+    let az=Math.atan2(y,x)*180/Math.PI;
+    az=(az+360)%360;
+    const arahMata=az<=22.5?"Utara":az<=67.5?"Timur Laut":az<=112.5?"Timur":az<=157.5?"Tenggara":az<=202.5?"Selatan":az<=247.5?"Barat Daya":az<=292.5?"Barat":"Barat Laut";
+    setKResult({az:az.toFixed(2),arah:arahMata});
+  };
+
+  // ── Kalkulator Rashdul Kiblat ──
+  const[rTgl,setRTgl]=useState(()=>new Date().toISOString().slice(0,10));
+  const[rLng,setRLng]=useState(DEF_LNG.toString());
+  const[rResult,setRResult]=useState(null);
+
+  const getDeklinasi=(doy)=>23.45*Math.sin((360/365*(doy-81))*Math.PI/180);
+  const getEOT=(doy)=>{
+    const B=(360/365*(doy-81))*Math.PI/180;
+    return 9.87*Math.sin(2*B)-7.53*Math.cos(B)-1.5*Math.sin(B);
+  };
+  const getDOY=(dateStr)=>{
+    const d=new Date(dateStr),s=new Date(d.getFullYear(),0,0);
+    return Math.floor((d-s)/86400000);
+  };
+
+  const hitungRashdul=()=>{
+    const lng=parseFloat(rLng);
+    if(isNaN(lng)||!rTgl)return;
+    const doy=getDOY(rTgl);
+    const dekl=getDeklinasi(doy);
+    const eot=getEOT(doy);
+    const bisaRashdul=Math.abs(dekl)<=KA_LAT+0.5;
+    if(!bisaRashdul){setRResult({error:true,dekl:dekl.toFixed(2)});return;}
+    const selisihBujur=(lng-KA_LNG)/15;
+    const totalMenit=720-eot+selisihBujur*60;
+    const jamWIB=totalMenit/60;
+    const jam=Math.floor(jamWIB);
+    const menit=Math.floor((jamWIB-jam)*60);
+    const detik=Math.round(((jamWIB-jam)*60-menit)*60);
+    const pad=n=>String(n).padStart(2,"0");
+    const waktu=`${pad(jam)}:${pad(menit)}:${pad(detik)} WIB`;
+    const tanggalObj=new Date(rTgl);
+    const tglStr=tanggalObj.toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+    setRResult({waktu,tglStr,dekl:dekl.toFixed(2),eot:eot.toFixed(2),error:false});
+  };
+
+  const inputStyle={
+    width:"100%",padding:"10px 14px",borderRadius:10,
+    border:"1px solid #e2d9c8",fontSize:14,background:"white",
+    fontFamily:"'DM Sans',sans-serif",outline:"none",color:"#1a1a1a",
+    boxSizing:"border-box"
+  };
+  const labelStyle={fontSize:12,color:"#9ca3af",marginBottom:4,display:"block",fontWeight:500};
+  const cardStyle={background:"white",borderRadius:16,border:"1px solid #e2d9c8",
+    boxShadow:"0 2px 12px rgba(0,0,0,.06)",overflow:"hidden",marginBottom:20};
+  const cardHeader={background:"#1B4332",padding:"16px 20px",display:"flex",alignItems:"center",gap:12};
+  const btnStyle={
+    width:"100%",padding:"11px",borderRadius:10,border:"none",
+    background:"#1B4332",color:"white",fontSize:14,fontWeight:600,
+    cursor:"pointer",fontFamily:"'DM Sans',sans-serif",marginTop:4,letterSpacing:".3px"
+  };
+  const resultBox={
+    background:"linear-gradient(135deg,#1B4332 0%,#2d6a4f 100%)",
+    borderRadius:14,padding:"20px 24px",marginTop:16,color:"white",
+    border:"1px solid rgba(212,168,83,.3)"
+  };
+
+  // Compass SVG
+  const CompassSVG=({az})=>{
+    const r=az*Math.PI/180;
+    const cx=60,cy=60,R=50;
+    const nx=cx+R*Math.sin(r),ny=cy-R*Math.cos(r);
+    const tx=cx-18*Math.sin(r),ty=cy+18*Math.cos(r);
+    return<svg width="120" height="120" viewBox="0 0 120 120" style={{flexShrink:0}}>
+      <circle cx={cx} cy={cy} r={R} fill="rgba(255,255,255,.08)" stroke="rgba(212,168,83,.4)" strokeWidth="1"/>
+      {["U","T","S","B"].map((d,i)=>{
+        const a=i*Math.PI/2;
+        return<text key={d} x={cx+44*Math.sin(a)} y={cy-44*Math.cos(a)+4}
+          textAnchor="middle" fill="rgba(255,255,255,.6)" fontSize="9" fontFamily="DM Sans">{d}</text>;
+      })}
+      <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#D4A853" strokeWidth="3" strokeLinecap="round"/>
+      <line x1={cx} y1={cy} x2={tx} y2={ty} stroke="rgba(255,255,255,.3)" strokeWidth="2" strokeLinecap="round"/>
+      <circle cx={cx} cy={cy} r={5} fill="#D4A853"/>
+    </svg>;
+  };
+
+  // Tanggal-tanggal rashdul kiblat tahunan
+  const tahun=rTgl?new Date(rTgl).getFullYear():new Date().getFullYear();
+  const rashdulDates=[`${tahun}-05-27`,`${tahun}-05-28`,`${tahun}-07-15`,`${tahun}-07-16`];
+
+  return<div style={{animation:"fadeIn .3s ease",maxWidth:800,margin:"0 auto"}}>
+    <div style={{textAlign:"center",marginBottom:28,paddingTop:8}}>
+      <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:"#1B4332",marginBottom:6}}>
+        🧭 Kalkulator Kiblat & Rashdul
+      </div>
+      <div style={{fontSize:13,color:"#9ca3af"}}>
+        Hitung arah kiblat dan waktu rashdul kiblat untuk lokasi mana pun
+      </div>
+    </div>
+
+    {/* ── KALKULATOR ARAH KIBLAT ── */}
+    <div style={cardStyle}>
+      <div style={cardHeader}>
+        <div style={{width:36,height:36,borderRadius:10,background:"rgba(212,168,83,.2)",
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🕋</div>
+        <div>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:"white"}}>Arah Kiblat</div>
+          <div style={{fontSize:11,color:"rgba(212,168,83,.8)"}}>Berdasarkan koordinat lokasi pengamat</div>
+        </div>
+      </div>
+      <div style={{padding:"20px 24px"}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+          <div>
+            <label style={labelStyle}>Lintang (Latitude)</label>
+            <input style={inputStyle} type="number" step="0.0001" value={kLat}
+              onChange={e=>setKLat(e.target.value)} placeholder="-7.6101"/>
+            <div style={{fontSize:11,color:"#9ca3af",marginTop:3}}>Negatif = Selatan. Pilangkenceng ≈ -7.6101</div>
+          </div>
+          <div>
+            <label style={labelStyle}>Bujur (Longitude)</label>
+            <input style={inputStyle} type="number" step="0.0001" value={kLng}
+              onChange={e=>setKLng(e.target.value)} placeholder="111.4926"/>
+            <div style={{fontSize:11,color:"#9ca3af",marginTop:3}}>Positif = Timur. Pilangkenceng ≈ 111.4926</div>
+          </div>
+        </div>
+        <div style={{background:"#f8f4ed",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#6b7280",marginBottom:16}}>
+          📍 <strong>Ka'bah:</strong> 21°25'20" LU, 39°49'34" BT (konstan)
+        </div>
+        <button style={btnStyle} onClick={hitungKiblat}>Hitung Arah Kiblat →</button>
+        {kResult&&<div style={resultBox}>
+          <div style={{display:"flex",alignItems:"center",gap:20}}>
+            <CompassSVG az={parseFloat(kResult.az)}/>
+            <div>
+              <div style={{fontSize:12,color:"rgba(212,168,83,.8)",marginBottom:4}}>Arah Kiblat dari Utara (searah jarum jam)</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:40,fontWeight:700,color:"#D4A853",lineHeight:1}}>
+                {kResult.az}°
+              </div>
+              <div style={{fontSize:16,fontWeight:600,marginTop:6}}>{kResult.arah}</div>
+              <div style={{fontSize:12,color:"rgba(255,255,255,.6)",marginTop:8}}>
+                Arahkan bayangan tongkat/benda ke arah berlawanan saat rashdul kiblat
+              </div>
+            </div>
+          </div>
+        </div>}
+      </div>
+    </div>
+
+    {/* ── KALKULATOR RASHDUL KIBLAT ── */}
+    <div style={cardStyle}>
+      <div style={cardHeader}>
+        <div style={{width:36,height:36,borderRadius:10,background:"rgba(212,168,83,.2)",
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>☀️</div>
+        <div>
+          <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:"white"}}>Rashdul Kiblat</div>
+          <div style={{fontSize:11,color:"rgba(212,168,83,.8)"}}>Waktu matahari tepat di atas Ka'bah</div>
+        </div>
+      </div>
+      <div style={{padding:"20px 24px"}}>
+        <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:10,padding:"12px 14px",
+          fontSize:12,color:"#92400e",marginBottom:16,lineHeight:1.6}}>
+          ℹ️ Rashdul kiblat terjadi dua kali setahun: sekitar <strong>27–28 Mei</strong> dan <strong>15–16 Juli</strong>,
+          saat deklinasi matahari ≈ lintang Ka'bah (21,42°). Bayangan benda tegak akan menunjuk tepat ke arah kiblat.
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+          <div>
+            <label style={labelStyle}>Tanggal</label>
+            <input style={inputStyle} type="date" value={rTgl} onChange={e=>setRTgl(e.target.value)}/>
+          </div>
+          <div>
+            <label style={labelStyle}>Bujur Lokasi (Longitude)</label>
+            <input style={inputStyle} type="number" step="0.0001" value={rLng}
+              onChange={e=>setRLng(e.target.value)} placeholder="111.4926"/>
+            <div style={{fontSize:11,color:"#9ca3af",marginTop:3}}>Pilangkenceng ≈ 111.4926</div>
+          </div>
+        </div>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:12,color:"#9ca3af",marginBottom:8,fontWeight:500}}>⚡ Pilih tanggal rashdul tahun {tahun}:</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {rashdulDates.map(d=>{
+              const obj=new Date(d);
+              const lbl=obj.toLocaleDateString("id-ID",{day:"numeric",month:"short"});
+              return<button key={d} onClick={()=>setRTgl(d)} style={{
+                padding:"6px 14px",borderRadius:20,fontSize:12,fontWeight:600,cursor:"pointer",
+                border:"1px solid #D4A853",background:rTgl===d?"#D4A853":"white",
+                color:rTgl===d?"#1B4332":"#92400e",fontFamily:"'DM Sans',sans-serif",transition:"all .2s"
+              }}>{lbl}</button>;
+            })}
+          </div>
+        </div>
+        <button style={btnStyle} onClick={hitungRashdul}>Hitung Waktu Rashdul →</button>
+        {rResult&&(rResult.error
+          ?<div style={{...resultBox,background:"linear-gradient(135deg,#7f1d1d,#991b1b)"}}>
+            <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>⚠️ Rashdul Kiblat tidak terjadi pada tanggal ini</div>
+            <div style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>
+              Deklinasi matahari = {rResult.dekl}° (jauh dari lintang Ka'bah 21,42°).
+              Pilih tanggal sekitar 27–28 Mei atau 15–16 Juli.
+            </div>
+          </div>
+          :<div style={resultBox}>
+            <div style={{marginBottom:12,paddingBottom:12,borderBottom:"1px solid rgba(255,255,255,.15)"}}>
+              <div style={{fontSize:11,color:"rgba(212,168,83,.8)",marginBottom:2}}>Waktu Rashdul Kiblat</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:36,fontWeight:700,color:"#D4A853",lineHeight:1}}>
+                {rResult.waktu}
+              </div>
+              <div style={{fontSize:13,color:"rgba(255,255,255,.75)",marginTop:4}}>{rResult.tglStr}</div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,fontSize:12}}>
+              <div style={{background:"rgba(255,255,255,.08)",borderRadius:8,padding:"10px 12px"}}>
+                <div style={{color:"rgba(212,168,83,.8)",marginBottom:2}}>Deklinasi Matahari</div>
+                <div style={{fontWeight:700,fontSize:14}}>{rResult.dekl}°</div>
+              </div>
+              <div style={{background:"rgba(255,255,255,.08)",borderRadius:8,padding:"10px 12px"}}>
+                <div style={{color:"rgba(212,168,83,.8)",marginBottom:2}}>Equation of Time</div>
+                <div style={{fontWeight:700,fontSize:14}}>{rResult.eot} menit</div>
+              </div>
+              <div style={{background:"rgba(255,255,255,.08)",borderRadius:8,padding:"10px 12px"}}>
+                <div style={{color:"rgba(212,168,83,.8)",marginBottom:2}}>Zona Waktu</div>
+                <div style={{fontWeight:700,fontSize:14}}>WIB (UTC+7)</div>
+              </div>
+            </div>
+            <div style={{marginTop:12,padding:"10px 12px",background:"rgba(212,168,83,.12)",
+              borderRadius:8,fontSize:12,color:"rgba(255,255,255,.8)",lineHeight:1.5}}>
+              💡 Pada pukul tersebut, dirikan tongkat/benda tegak di tempat terbuka. Bayangan yang terbentuk menunjuk
+              tepat ke arah <strong style={{color:"#D4A853"}}>kiblat (timur)</strong> dari benda tersebut.
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <div style={{background:"white",borderRadius:14,border:"1px solid #e2d9c8",padding:"16px 20px",
+      fontSize:12,color:"#6b7280",lineHeight:1.7}}>
+      <strong style={{color:"#1B4332"}}>📐 Metode Perhitungan:</strong> Arah kiblat menggunakan formula
+      Spherical Trigonometry (Trigonometri Bola). Rashdul kiblat dihitung menggunakan deklinasi matahari
+      dan Equation of Time (koreksi waktu surya). Koordinat Ka'bah: 21°25'21" LU, 39°49'35" BT.
+    </div>
+  </div>;
+}
+
 // ── APP ──
 function App(){
   const{data,loading,error,lastSync,refetch}=useSheetData();
@@ -733,7 +985,7 @@ function App(){
           </div>
         </div>
         <div style={{display:"flex",gap:4,background:"rgba(255,255,255,.1)",borderRadius:24,padding:4}}>
-          {[{id:"album",icon:"🗂️",label:"Album"},{id:"peta",icon:"🗺️",label:"Peta"},{id:"statistik",icon:"📊",label:"Statistik"}].map(t=>(
+          {[{id:"album",icon:"🗂️",label:"Album"},{id:"peta",icon:"🗺️",label:"Peta"},{id:"statistik",icon:"📊",label:"Statistik"},{id:"kiblat",icon:"🧭",label:"Kiblat"}].map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"6px 16px",borderRadius:20,border:"none",
               cursor:"pointer",fontSize:12,fontWeight:600,transition:"all .2s",
               background:tab===t.id?"#D4A853":"transparent",color:tab===t.id?"#1B4332":"rgba(255,255,255,.8)"}}>
@@ -757,6 +1009,7 @@ function App(){
       {tab==="album"&&<TabAlbum data={data} loading={loading} error={error} onSelect={setSelected}/>}
       {tab==="peta"&&<TabPeta data={data} onSelect={m=>{setSelected(m);}}/>}
       {tab==="statistik"&&<TabStatistik data={data}/>}
+      {tab==="kiblat"&&<TabKiblat/>}
       <div style={{marginTop:40,paddingTop:16,borderTop:"1px solid #e8e0d0",textAlign:"center",fontSize:11,color:"#9ca3af",lineHeight:1.8}}>
         Direktori Masjid & Musholla · Kecamatan Pilangkenceng, Kabupaten Madiun<br/>
         Kerjasama: KUA Kec. Pilangkenceng · BKM · PW DMI · APRI & IPARI · Kanwil Kemenag Jatim
