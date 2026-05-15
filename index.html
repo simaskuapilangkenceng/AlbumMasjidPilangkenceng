@@ -7,1020 +7,1083 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
   <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-    :root{--hijau:#1B4332;--emas:#D4A853;--krem:#FAFAF7;--border:#e2d9c8;}
-    body{background:var(--krem);font-family:'DM Sans',sans-serif;}
-    input,select,button{font-family:inherit;}
-    input::placeholder{color:rgba(255,255,255,.4);}
-    select{appearance:none;-webkit-appearance:none;}
-    ::-webkit-scrollbar{width:5px;height:5px;}
-    ::-webkit-scrollbar-thumb{background:var(--hijau);border-radius:3px;}
-    @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-    .leaflet-popup-content-wrapper{border-radius:12px!important;border:1px solid var(--border)!important;box-shadow:0 8px 24px rgba(0,0,0,.15)!important;}
-    .leaflet-popup-tip{background:white!important;}
-    @media print{
-      body *{visibility:hidden;}
-      #print-area,#print-area *{visibility:visible;}
-      #print-area{position:fixed;inset:0;background:white;z-index:9999;padding:15mm;font-family:'DM Sans',sans-serif;}
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #FAFAF7; }
+    input::placeholder { color: rgba(255,255,255,.45); }
+    select { appearance: none; -webkit-appearance: none; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-thumb { background: #1B4332; border-radius: 3px; }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
   </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
 </head>
 <body>
-<div id="root"></div>
-<div id="print-area" style="display:none"></div>
-<script type="text/babel">
-const{useState,useMemo,useEffect,useCallback,useRef}=React;
+  <div id="root"></div>
 
-const CFG={
-  SPREADSHEET_ID:"1CdozmKagH4ZEOCga5v7wKMr6Pnw6Dl69aQgfgy5lQT0",
-  SHEET_NAME:"Form Responses 1",
-  API_KEY:"AIzaSyA4VRcMWoGk57JL3j-eWjnoCp6cjvzanXY",
-  CENTER:[-7.5666,111.5833],
-};
+  <script type="text/babel">
+    const { useState, useMemo, useEffect, useCallback } = React;
 
-const IDX={
-  TIMESTAMP:0,KLASIFIKASI:1,NAMA_MASJID:2,JENIS:3,KECAMATAN:4,KABKOTA:5,
-  DESA:6,ALAMAT:7,EMAIL:8,MEDSOS:9,ID_SIMAS:10,AFILIASI:11,TAHUN_BERDIRI:12,
-  SK_TAKMIR:13,SK_LEVEL:14,LUAS_TANAH:15,LUAS_BANGUNAN:16,NAMA_KETUA:17,
-  WA_KETUA:18,NAMA_SEKRETARIS:19,WA_SEKRETARIS:20,PENGURUS_LAIN:21,
-  MUADZIN:22,MARBOT:23,KOORDINAT:24,JAMAAH_TOTAL:25,JAMAAH_MAGHRIB:26,
-  JAMAAH_DHUHUR:27,JAMAAH_SUBUH:28,JAMAAH_JUMAT:29,MAJELIS_TAKLIM:30,
-  REMAJA_MASJID:31,STATUS_TANAH:32,NOMOR_SERTIF:33,TGL_SERTIF:34,
-  AKTA_WAKAF:35,NAMA_WAKIF:36,NAMA_NADZIR:37,FOTO_SERTIF_1:38,FOTO_SERTIF_2:39,
-  WAKAF_PRODUKTIF:40,KONDISI_BGN:41,REKENING:42,WA_BANTUAN:43,KIBLAT:44,
-  AULA:45,PERPUSTAKAAN:46,TPQ_ANAK:47,PROGRAM_RAMAH:48,FOTO_DEPAN:49,
-  FOTO_DALAM:50,FOTO_WUDHU:51,FOTO_WC:52,FOTO_LAIN:53,NAMA_SURVEYOR:54,
-  TGL_SURVEI:55,FOLDER_ID:58,FOLDER_URL:59,URL_FOTO_DEPAN:60,URL_FOTO_DALAM:61,
-  URL_FOTO_WUDHU:62,URL_FOTO_WC:63,URL_FOTO_LAIN:64,URL_FOTO_SERTIF:65,
-  JUMLAH_FOTO:66,STATUS_PROSES:67,
-};
+    // ════════════════════════════════════════════════════════════
+    //  KONFIGURASI
+    //  CATATAN KEAMANAN: Ganti API_KEY dengan environment variable
+    //  atau proxy backend sebelum deploy ke publik.
+    // ════════════════════════════════════════════════════════════
+    const SHEETS_CONFIG = {
+      SPREADSHEET_ID: "1yXZnF2QSgqD5SHIgSqQA8UDYdvFfXbl51UVgpZ7TY5M",
+      SHEET_NAME:     "Form Responses 1",
+      API_KEY:        "AIzaSyA4VRcMWoGk57JL3j-eWjnoCp6cjvzanXY",
+    };
 
-const LABEL_FORM=new Set([
-  "Dusun / RT / RW / Nama Jalan","Nama Pengurus Lainnya beserta Jabatan dan Nomor WA",
-  "Muadzin — Jumlah dan Nama","Koordinat GPS dan Link Google Maps",
-  "Jumlah Jamaah Maghrib / Isya rata-rata","Jumlah Jamaah Dhuhur / Ashar rata-rata",
-  "Jumlah Jamaah Subuh rata-rata","Jumlah Jamaah Sholat Jumat rata-rata",
-  "Remaja Masjid — Jumlah Anggota, Nama Ketua, dan Nomor WA",
-  "Nomor Sertifikat Tanah Wakaf","Nomor Akta Ikrar Wakaf (AIW)",
-  "Nama Wakif (pemberi wakaf)","Nama Nadzir (pengelola wakaf)",
-  "Wakaf Produktif / Usaha Produktif Masjid",
-  "Nomor Rekening Bantuan (atas nama lembaga/masjid)",
-  "Nomor Telepon / WA yang Bisa Dihubungi untuk Informasi Bantuan",
-  "Sertifikat Kalibrasi Arah Kiblat dari Kemenag / KUA",
-]);
+    // ════════════════════════════════════════════════════════════
+    //  MAPPING INDEX KOLOM — Disesuaikan dengan B_IDX v3.9
+    //  Index 0–102 = kolom form, 103+ = kolom generated script
+    // ════════════════════════════════════════════════════════════
+    const IDX = {
+      // ── Identitas & Lokasi ──────────────────────────────────
+      TIMESTAMP:              0,
+      LOKASI_SURVEY:          1,   // "Masjid" atau "Musholla" (Multi-choice GForm)
+      ID_SIMAS:               2,
+      NAMA_MASJID:            3,
+      TIPOLOGI:               4,   // v3.9: ganti JENIS → TIPOLOGI
+      AFILIASI:               5,
+      TAHUN_BERDIRI:          6,
+      KABKOTA:                7,
+      KECAMATAN:              8,
+      DESA:                   9,
+      ALAMAT:                 10,
+      LINK_GMAPS:             11,   // v3.9: baru — link Google Maps langsung
+      KOORDINAT_BT:           12,   // v3.9: pisah → Bujur Timur
+      KOORDINAT_LS:           13,   // v3.9: pisah → Lintang Selatan
+      EMAIL:                  14,
+      MEDSOS:                 15,
 
-const cv=(row,idx)=>{const v=row[idx];if(!v)return"";const s=String(v).trim();return LABEL_FORM.has(s)?"":s;};
+      // ── Pengurus Takmir ─────────────────────────────────────
+      NAMA_KETUA:             16,
+      WA_KETUA:               17,   // 🔒 SENSITIF — tidak ditampilkan
+      NAMA_SEKRETARIS:        18,
+      WA_SEKRETARIS:          19,   // 🔒 SENSITIF — tidak ditampilkan
+      PENGURUS_LAIN:          20,
+      SK_TAKMIR:              21,
+      SK_LEVEL:               22,
 
-const parseLatLng=(k)=>{
-  if(!k)return null;
-  const m=k.match(/(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)/);
-  if(!m)return null;
-  const lat=parseFloat(m[1]),lng=parseFloat(m[2]);
-  if(isNaN(lat)||isNaN(lng))return null;
-  if(lat<-8.5||lat>-6.5||lng<110.5||lng>112.5)return null;
-  return[lat,lng];
-};
+      // ── Fisik Bangunan ──────────────────────────────────────
+      LUAS_TANAH:             23,
+      LUAS_BANGUNAN:          24,
+      DAYA_TAMPUNG:           25,   // v3.9: baru
 
-const rowToMasjid=(row,id)=>{
-  const koordinat=cv(row,IDX.KOORDINAT);
-  return{
-    id,koordinat,latLng:parseLatLng(koordinat),
-    timestamp:cv(row,IDX.TIMESTAMP),klasifikasi:cv(row,IDX.KLASIFIKASI),
-    namaMasjid:cv(row,IDX.NAMA_MASJID),jenis:cv(row,IDX.JENIS),
-    kecamatan:cv(row,IDX.KECAMATAN),kabkota:cv(row,IDX.KABKOTA),
-    desa:cv(row,IDX.DESA),alamat:cv(row,IDX.ALAMAT),email:cv(row,IDX.EMAIL),
-    medsos:cv(row,IDX.MEDSOS),idSimas:cv(row,IDX.ID_SIMAS),afiliasi:cv(row,IDX.AFILIASI),
-    tahunBerdiri:cv(row,IDX.TAHUN_BERDIRI),skTakmir:cv(row,IDX.SK_TAKMIR),
-    skLevel:cv(row,IDX.SK_LEVEL),luasTanah:cv(row,IDX.LUAS_TANAH),
-    luasBangunan:cv(row,IDX.LUAS_BANGUNAN),namaKetua:cv(row,IDX.NAMA_KETUA),
-    waKetua:cv(row,IDX.WA_KETUA),namaSekretaris:cv(row,IDX.NAMA_SEKRETARIS),
-    waSekretaris:cv(row,IDX.WA_SEKRETARIS),pengurusLain:cv(row,IDX.PENGURUS_LAIN),
-    muadzin:cv(row,IDX.MUADZIN),marbot:cv(row,IDX.MARBOT),
-    jamaahTotal:cv(row,IDX.JAMAAH_TOTAL),jamaahMaghrib:cv(row,IDX.JAMAAH_MAGHRIB),
-    jamaahDhuhur:cv(row,IDX.JAMAAH_DHUHUR),jamaahSubuh:cv(row,IDX.JAMAAH_SUBUH),
-    jamaahJumat:cv(row,IDX.JAMAAH_JUMAT),majelisTaklim:cv(row,IDX.MAJELIS_TAKLIM),
-    remasjid:cv(row,IDX.REMAJA_MASJID),statusTanah:cv(row,IDX.STATUS_TANAH),
-    nomorSertif:cv(row,IDX.NOMOR_SERTIF),tglSertif:cv(row,IDX.TGL_SERTIF),
-    aktaWakaf:cv(row,IDX.AKTA_WAKAF),namaWakif:cv(row,IDX.NAMA_WAKIF),
-    namaNadzir:cv(row,IDX.NAMA_NADZIR),wakafProduktif:cv(row,IDX.WAKAF_PRODUKTIF),
-    kondisiBgn:cv(row,IDX.KONDISI_BGN),rekening:cv(row,IDX.REKENING),
-    waBantuan:cv(row,IDX.WA_BANTUAN),kiblat:cv(row,IDX.KIBLAT),aula:cv(row,IDX.AULA),
-    perpustakaan:cv(row,IDX.PERPUSTAKAAN),tpqAnak:cv(row,IDX.TPQ_ANAK),
-    programRamah:cv(row,IDX.PROGRAM_RAMAH),namaSurveyor:cv(row,IDX.NAMA_SURVEYOR),
-    tglSurvei:cv(row,IDX.TGL_SURVEI),folderUrl:cv(row,IDX.FOLDER_URL),
-    urlFotoDepan:cv(row,IDX.URL_FOTO_DEPAN),urlFotoDalam:cv(row,IDX.URL_FOTO_DALAM),
-    urlFotoWudhu:cv(row,IDX.URL_FOTO_WUDHU),urlFotoWC:cv(row,IDX.URL_FOTO_WC),
-    urlFotoLain:cv(row,IDX.URL_FOTO_LAIN),urlFotoSertif:cv(row,IDX.URL_FOTO_SERTIF),
-    jumlahFoto:cv(row,IDX.JUMLAH_FOTO),statusProses:cv(row,IDX.STATUS_PROSES),
-    fotoUtama:cv(row,IDX.URL_FOTO_DEPAN).split(",")[0].trim(),
-  };
-};
+      // ── Jamaah ──────────────────────────────────────────────
+      JAMAAH_TOTAL:           26,
+      JAMAAH_MAGHRIB:         27,
+      JAMAAH_DHUHUR:          28,
+      JAMAAH_SUBUH:           29,
+      JAMAAH_JUMAT:           30,
 
-function useSheetData(){
-  const[data,setData]=useState([]);
-  const[loading,setLoading]=useState(true);
-  const[error,setError]=useState(null);
-  const[lastSync,setLastSync]=useState(null);
-  const fetchData=useCallback(async()=>{
-    setLoading(true);setError(null);
-    try{
-      const range=encodeURIComponent(`${CFG.SHEET_NAME}!A2:BQ`);
-      const url=`https://sheets.googleapis.com/v4/spreadsheets/${CFG.SPREADSHEET_ID}/values/${range}?key=${CFG.API_KEY}`;
-      const res=await fetch(url);
-      if(!res.ok){const e=await res.json();throw new Error(e?.error?.message||"Gagal fetch");}
-      const json=await res.json();
-      setData((json.values||[]).map((r,i)=>rowToMasjid(r,i+1)).filter(m=>!m.statusProses||m.statusProses==="Selesai"));
-      setLastSync(new Date());
-    }catch(e){setError(e.message);}
-    finally{setLoading(false);}
-  },[]);
-  useEffect(()=>{fetchData();},[fetchData]);
-  return{data,loading,error,lastSync,refetch:fetchData};
-}
+      // ── SDM Ibadah ──────────────────────────────────────────
+      IMAM:                   31,
+      JUMLAH_IMAM:            32,
+      MUADZIN:                33,
+      JUMLAH_MUADZIN:         34,
+      KHOTIB:                 35,
+      JUMLAH_KHOTIB:          36,
 
-const KS={
-  "Baik":{bg:"#dcfce7",color:"#15803d",dot:"#22c55e"},
-  "Sedang":{bg:"#fef9c3",color:"#a16207",dot:"#eab308"},
-  "Rusak Ringan":{bg:"#ffedd5",color:"#c2410c",dot:"#f97316"},
-  "Rusak Berat":{bg:"#fee2e2",color:"#b91c1c",dot:"#ef4444"},
-};
-function KondisiBadge({kondisi}){
-  const s=KS[kondisi]||{bg:"#f3f4f6",color:"#6b7280",dot:"#9ca3af"};
-  return<span style={{display:"inline-flex",alignItems:"center",gap:5,background:s.bg,
-    color:s.color,fontSize:11,fontWeight:600,padding:"3px 9px",borderRadius:20}}>
-    <span style={{width:6,height:6,borderRadius:"50%",background:s.dot,display:"inline-block"}}/>
-    {kondisi||"—"}
-  </span>;
-}
-function FR({label,value,mono=false,full=false}){
-  if(!value)return null;
-  return<div style={{display:"flex",gap:10,marginBottom:7,alignItems:"flex-start",flexDirection:full?"column":"row"}}>
-    <span style={{fontSize:12,color:"#9ca3af",minWidth:full?0:140,flexShrink:0,paddingTop:1}}>{label}</span>
-    <span style={{fontSize:13,color:"#1a1a1a",lineHeight:1.5,flex:1,fontFamily:mono?"'Courier New',monospace":"inherit",wordBreak:"break-word"}}>{value}</span>
-  </div>;
-}
-function FotoGrid({label,urlString,icon}){
-  const urls=(urlString||"").split(",").map(u=>u.trim()).filter(Boolean);
-  if(!urls.length)return null;
-  return<div style={{marginBottom:14}}>
-    <div style={{fontSize:12,color:"#9ca3af",marginBottom:6}}>{icon} {label} ({urls.length} foto)</div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))",gap:6}}>
-      {urls.map((url,i)=><a key={i} href={url} target="_blank" rel="noreferrer"
-        style={{display:"block",borderRadius:8,overflow:"hidden",aspectRatio:"1",background:"#f3f4f6",border:"1px solid #e5e7eb"}}>
-        <img src={url} alt={label} style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>
-      </a>)}
-    </div>
-  </div>;
-}
-function Akordion({icon,judul,badge,children,defaultOpen=false}){
-  const[open,setOpen]=useState(defaultOpen);
-  return<div style={{borderBottom:"1px solid #e2d9c8"}}>
-    <button onClick={()=>setOpen(!open)} style={{width:"100%",display:"flex",alignItems:"center",
-      gap:12,padding:"14px 20px",background:open?"#f8f4ed":"white",border:"none",cursor:"pointer",textAlign:"left",transition:"background .2s"}}>
-      <span style={{width:32,height:32,borderRadius:"50%",flexShrink:0,background:open?"#1B4332":"#f0e8d8",
-        display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,transition:"background .2s"}}>{icon}</span>
-      <span style={{flex:1,fontFamily:"'Playfair Display',serif",fontSize:14,fontWeight:700,color:"#1B4332"}}>{judul}</span>
-      {badge&&<span style={{fontSize:11,padding:"2px 8px",borderRadius:20,background:"#e8f5e9",color:"#1B4332",fontWeight:600,marginRight:6}}>{badge}</span>}
-      <span style={{color:"#1B4332",transform:open?"rotate(180deg)":"rotate(0deg)",transition:"transform .25s",fontSize:12}}>▼</span>
-    </button>
-    <div style={{maxHeight:open?1800:0,overflow:"hidden",transition:"max-height .35s ease"}}>
-      <div style={{padding:"4px 20px 18px 64px"}}>{children}</div>
-    </div>
-  </div>;
-}
+      // ── Nama Khotib ─────────────────────────────────────────
+      NAMA_KHOTIB_1:          37,
+      NAMA_KHOTIB_2:          38,
+      NAMA_KHOTIB_3:          39,
+      NAMA_KHOTIB_LAIN:       40,
 
-// ── MODAL ──
-function ModalDetail({masjid,onClose,onCetak}){
-  if(!masjid)return null;
-  const isMusholla=masjid.klasifikasi?.toUpperCase().includes("MUSHOLLA");
-  const wakafOk=masjid.statusTanah?.includes("Bersertifikat");
-  return<div onClick={onClose} style={{position:"fixed",inset:0,zIndex:1000,
-    background:"rgba(15,30,20,0.65)",backdropFilter:"blur(6px)",
-    display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"16px",overflowY:"auto"}}>
-    <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:700,background:"white",
-      borderRadius:18,overflow:"hidden",margin:"auto",boxShadow:"0 32px 80px rgba(0,0,0,.3)",
-      animation:"fadeIn .25s ease"}}>
-      <div style={{position:"relative",height:220,background:"#1B4332",overflow:"hidden"}}>
-        {masjid.fotoUtama?<img src={masjid.fotoUtama} alt={masjid.namaMasjid}
-          style={{width:"100%",height:"100%",objectFit:"cover",opacity:.7}}
-          onError={e=>{e.target.style.display="none";}}/>
-          :<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%",fontSize:64,opacity:.2}}>🕌</div>}
-        <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(27,67,50,.95) 0%,rgba(27,67,50,.3) 60%,transparent 100%)"}}/>
-        <div style={{position:"absolute",top:12,right:12,display:"flex",gap:8}}>
-          <button onClick={()=>onCetak(masjid)} style={{padding:"5px 12px",borderRadius:20,
-            background:"rgba(212,168,83,.9)",border:"none",color:"#1B4332",cursor:"pointer",fontSize:11,fontWeight:700}}>
-            🖨️ Cetak Profil
-          </button>
-          <button onClick={onClose} style={{width:32,height:32,borderRadius:"50%",
-            background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.2)",
-            color:"white",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
-        </div>
-        <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"0 20px 18px"}}>
-          <div style={{fontSize:10,color:"#D4A853",fontWeight:700,letterSpacing:"1px",marginBottom:4}}>
-            {isMusholla?"MUSHOLLA":"MASJID"} · {masjid.jenis?.toUpperCase()||masjid.klasifikasi?.toUpperCase()}
-          </div>
-          <div style={{fontFamily:"'Playfair Display',serif",fontSize:20,fontWeight:700,color:"white",lineHeight:1.2,marginBottom:4}}>
-            {masjid.namaMasjid}
-          </div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,.75)"}}>📍 {masjid.desa}, Kec. {masjid.kecamatan}</div>
-        </div>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",borderBottom:"1px solid #e2d9c8"}}>
-        {[{l:"Berdiri",v:masjid.tahunBerdiri||"—"},
-          {l:"Jamaah Jumat",v:masjid.jamaahJumat?"±"+masjid.jamaahJumat:"—"},
-          {l:"Kondisi",v:<KondisiBadge kondisi={masjid.kondisiBgn}/>},
-          {l:"Status Tanah",v:wakafOk?"✅ Sertifikat":(masjid.statusTanah?.split("—")[0].trim()||"—")},
-        ].map((s,i)=><div key={i} style={{padding:"12px 10px",textAlign:"center",borderRight:i<3?"1px solid #e2d9c8":"none"}}>
-          <div style={{fontSize:10,color:"#9ca3af",marginBottom:3}}>{s.l}</div>
-          <div style={{fontSize:12,fontWeight:600,color:"#1B4332"}}>{s.v}</div>
-        </div>)}
-      </div>
-      <Akordion icon="🕌" judul="Identitas & Lokasi" defaultOpen>
-        <FR label="Nama" value={masjid.namaMasjid}/>
-        <FR label="Jenis" value={[masjid.klasifikasi,masjid.jenis].filter(Boolean).join(" — ")}/>
-        <FR label="ID SIMAS" value={masjid.idSimas} mono/>
-        <FR label="Afiliasi" value={masjid.afiliasi}/>
-        <FR label="Tahun Berdiri" value={masjid.tahunBerdiri}/>
-        <FR label="Alamat" value={masjid.alamat}/>
-        <FR label="Koordinat GPS" value={masjid.koordinat} mono/>
-        {masjid.koordinat&&<div style={{marginTop:4,marginBottom:8}}>
-          <a href={`https://maps.google.com/?q=${masjid.koordinat}`} target="_blank" rel="noreferrer"
-            style={{fontSize:12,color:"#1B4332",fontWeight:500,textDecoration:"none",padding:"4px 10px",background:"#e8f5e9",borderRadius:20,display:"inline-block"}}>
-            🗺️ Buka di Google Maps
-          </a>
-        </div>}
-        <FR label="Email" value={masjid.email}/>
-        <FR label="Media Sosial" value={masjid.medsos}/>
-      </Akordion>
-      <Akordion icon="📋" judul="Administrasi" badge={masjid.skTakmir&&masjid.skTakmir!=="Tidak punya SK"?"Ada SK":null}>
-        <FR label="SK Takmir" value={masjid.skTakmir}/>
-        <FR label="Mengetahui" value={masjid.skLevel}/>
-        <FR label="Luas Tanah" value={masjid.luasTanah?masjid.luasTanah+" m²":""}/>
-        <FR label="Luas Bangunan" value={masjid.luasBangunan?masjid.luasBangunan+" m²":""}/>
-      </Akordion>
-      <Akordion icon="👥" judul="Pengurus & Petugas">
-        <FR label="Ketua Takmir" value={masjid.namaKetua}/>
-        <FR label="WA Ketua" value={masjid.waKetua!=="Tidak diizinkan"?masjid.waKetua:""}/>
-        <FR label="Sekretaris" value={masjid.namaSekretaris}/>
-        <FR label="Pengurus Lain" value={masjid.pengurusLain}/>
-        <FR label="Muadzin" value={masjid.muadzin}/>
-        <FR label="Marbot" value={masjid.marbot}/>
-      </Akordion>
-      <Akordion icon="📊" judul="Data Jamaah & Ibadah">
-        {masjid.jamaahTotal&&<div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:14}}>
-          {[{l:"Total Jamaah",v:masjid.jamaahTotal+" org"},
-            {l:"Jamaah Jumat",v:masjid.jamaahJumat?"±"+masjid.jamaahJumat+" org":"—"},
-            {l:"Maghrib/Isya",v:masjid.jamaahMaghrib?"±"+masjid.jamaahMaghrib+" org":"—"},
-            {l:"Subuh",v:masjid.jamaahSubuh?"±"+masjid.jamaahSubuh+" org":"—"},
-          ].map((s,i)=><div key={i} style={{background:"#f8faf8",borderRadius:8,padding:"8px 12px",textAlign:"center"}}>
-            <div style={{fontSize:10,color:"#9ca3af"}}>{s.l}</div>
-            <div style={{fontSize:14,fontWeight:600,color:"#1B4332",marginTop:2}}>{s.v}</div>
-          </div>)}
-        </div>}
-        <FR label="Majelis Taklim" value={masjid.majelisTaklim} full/>
-        <FR label="Remaja Masjid" value={masjid.remasjid}/>
-      </Akordion>
-      <Akordion icon="🏠" judul="Status Tanah & Wakaf" badge={wakafOk?"✅ Bersertifikat":null}>
-        <FR label="Status Tanah" value={masjid.statusTanah}/>
-        <FR label="No. Sertifikat" value={masjid.nomorSertif} mono/>
-        <FR label="Tgl. Sertifikat" value={masjid.tglSertif}/>
-        <FR label="Akta Wakaf" value={masjid.aktaWakaf} mono/>
-        <FR label="Nama Wakif" value={masjid.namaWakif}/>
-        <FR label="Nama Nadzir" value={masjid.namaNadzir}/>
-        <FR label="Wakaf Produktif" value={masjid.wakafProduktif}/>
-      </Akordion>
-      <Akordion icon="🏗️" judul="Fasilitas & Kegiatan">
-        <div style={{marginBottom:10}}><KondisiBadge kondisi={masjid.kondisiBgn}/></div>
-        <FR label="Kalibrasi Kiblat" value={masjid.kiblat}/>
-        <FR label="Aula" value={masjid.aula}/>
-        <FR label="Perpustakaan" value={masjid.perpustakaan}/>
-        <FR label="TPQ" value={masjid.tpqAnak}/>
-        <FR label="Program Ramah" value={masjid.programRamah} full/>
-        <FR label="Rekening" value={masjid.rekening} mono/>
-        <FR label="WA Bantuan" value={masjid.waBantuan}/>
-      </Akordion>
-      <Akordion icon="📷" judul="Foto Dokumentasi" badge={masjid.jumlahFoto?masjid.jumlahFoto+" foto":null}>
-        <FotoGrid label="Foto Depan" urlString={masjid.urlFotoDepan} icon="🏛️"/>
-        <FotoGrid label="Foto Dalam" urlString={masjid.urlFotoDalam} icon="🕌"/>
-        <FotoGrid label="Foto Wudhu" urlString={masjid.urlFotoWudhu} icon="💧"/>
-        <FotoGrid label="Foto WC" urlString={masjid.urlFotoWC} icon="🚿"/>
-        <FotoGrid label="Foto Lainnya" urlString={masjid.urlFotoLain} icon="📸"/>
-        <FotoGrid label="Foto Sertifikat" urlString={masjid.urlFotoSertif} icon="📄"/>
-        {masjid.folderUrl&&<a href={masjid.folderUrl} target="_blank" rel="noreferrer"
-          style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,color:"#1B4332",
-            fontWeight:500,textDecoration:"none",padding:"6px 12px",background:"#e8f5e9",borderRadius:20,marginTop:8}}>
-          📁 Buka Semua Foto di Drive
-        </a>}
-        <div style={{marginTop:14,paddingTop:12,borderTop:"1px solid #e2d9c8"}}>
-          <FR label="Surveyor" value={masjid.namaSurveyor}/>
-          <FR label="Tgl. Survei" value={masjid.tglSurvei}/>
-        </div>
-      </Akordion>
-    </div>
-  </div>;
-}
+      // ── Marbot ──────────────────────────────────────────────
+      MARBOT:                 41,
+      JUMLAH_MARBOT:          42,
 
-// ── TAB ALBUM ──
-function KartuMasjid({masjid,onClick}){
-  const[hover,setHover]=useState(false);
-  const isMusholla=masjid.klasifikasi?.toUpperCase().includes("MUSHOLLA");
-  return<div onClick={()=>onClick(masjid)} onMouseEnter={()=>setHover(true)} onMouseLeave={()=>setHover(false)}
-    style={{background:"white",borderRadius:14,overflow:"hidden",cursor:"pointer",border:"1px solid #e8e0d0",
-      boxShadow:hover?"0 10px 32px rgba(27,67,50,.15)":"0 2px 12px rgba(0,0,0,.06)",
-      transform:hover?"translateY(-4px)":"translateY(0)",transition:"all .22s ease"}}>
-    <div style={{position:"relative",height:176,background:"#e8e0d0",overflow:"hidden"}}>
-      {masjid.fotoUtama?<img src={masjid.fotoUtama} alt={masjid.namaMasjid}
-        style={{width:"100%",height:"100%",objectFit:"cover",transform:hover?"scale(1.05)":"scale(1)",transition:"transform .4s ease"}}
-        onError={e=>{e.target.style.display="none";}}/>
-        :<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:52,opacity:.25}}>🕌</div>}
-      <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(27,67,50,.5) 0%,transparent 60%)"}}/>
-      <div style={{position:"absolute",top:10,left:10,background:"rgba(27,67,50,.85)",backdropFilter:"blur(4px)",
-        borderRadius:20,padding:"3px 10px",fontSize:10,fontWeight:700,color:"#D4A853",letterSpacing:".5px"}}>
-        {isMusholla?"MUSHOLLA":"MASJID"}
-      </div>
-      <div style={{position:"absolute",top:10,right:10}}><KondisiBadge kondisi={masjid.kondisiBgn}/></div>
-      {masjid.jumlahFoto&&Number(masjid.jumlahFoto)>0&&
-        <div style={{position:"absolute",bottom:8,right:10,fontSize:11,color:"rgba(255,255,255,.85)"}}>
-          📷 {masjid.jumlahFoto}
-        </div>}
-    </div>
-    <div style={{padding:"12px 14px"}}>
-      <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,color:"#1B4332",lineHeight:1.3,marginBottom:3}}>
-        {masjid.namaMasjid}
-      </div>
-      <div style={{fontSize:11,color:"#9ca3af",marginBottom:9}}>
-        📍 {masjid.desa} · {masjid.tahunBerdiri||"—"}
-        {masjid.latLng&&<span style={{marginLeft:6,color:"#1B4332"}}>🗺️</span>}
-      </div>
-      <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
-        {masjid.afiliasi?.includes("NU")&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"#ecfdf5",color:"#047857",fontWeight:600}}>NU</span>}
-        {masjid.afiliasi?.includes("Muhammadiyah")&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"#eff6ff",color:"#1d4ed8",fontWeight:600}}>Muhammadiyah</span>}
-        {masjid.statusTanah?.includes("Bersertifikat")&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"#f0fdf4",color:"#166534",fontWeight:600}}>Wakaf ✓</span>}
-        {masjid.tpqAnak?.toLowerCase().startsWith("ada")&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"#fdf4ff",color:"#7e22ce",fontWeight:600}}>TPQ</span>}
-        {masjid.kondisiBgn?.includes("Rusak")&&<span style={{fontSize:10,padding:"2px 7px",borderRadius:20,background:"#fff7ed",color:"#c2410c",fontWeight:600}}>⚠️ Perlu Perhatian</span>}
-      </div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,borderTop:"1px solid #f3f4f6"}}>
-        <div style={{fontSize:11,color:"#9ca3af"}}>👥 Jumat: {masjid.jamaahJumat?"±"+masjid.jamaahJumat:"—"}</div>
-        <span style={{fontSize:11,color:"#1B4332",fontWeight:600}}>Detail →</span>
-      </div>
-    </div>
-  </div>;
-}
+      // ── Nama Imam ───────────────────────────────────────────
+      NAMA_IMAM_1:            43,
+      NAMA_IMAM_2:            44,
+      NAMA_IMAM_3:            45,
+      NAMA_IMAM_4:            46,
+      NAMA_IMAM_5:            47,
+      NAMA_IMAM_LAIN:         48,
 
-function TabAlbum({data,loading,error,onSelect}){
-  const[search,setSearch]=useState("");
-  const[filterDesa,setFilterDesa]=useState("");
-  const[filterKlas,setFilterKlas]=useState("");
-  const[filterKondisi,setFilterKondisi]=useState("");
-  const[showFilter,setShowFilter]=useState(false);
-  const desaList=useMemo(()=>[...new Set(data.map(m=>m.desa).filter(Boolean))].sort(),[data]);
-  const klasList=useMemo(()=>[...new Set(data.map(m=>m.klasifikasi).filter(Boolean))].sort(),[data]);
-  const filtered=useMemo(()=>data.filter(m=>{
-    const q=search.toLowerCase();
-    if(q&&!m.namaMasjid.toLowerCase().includes(q)&&!m.desa.toLowerCase().includes(q))return false;
-    if(filterDesa&&m.desa!==filterDesa)return false;
-    if(filterKlas&&m.klasifikasi!==filterKlas)return false;
-    if(filterKondisi&&m.kondisiBgn!==filterKondisi)return false;
-    return true;
-  }),[data,search,filterDesa,filterKlas,filterKondisi]);
-  const af=[filterDesa,filterKlas,filterKondisi].filter(Boolean).length;
-  const reset=()=>{setSearch("");setFilterDesa("");setFilterKlas("");setFilterKondisi("");};
-  return<div>
-    <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
-      <div style={{position:"relative",flex:1,minWidth:200}}>
-        <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:14}}>🔍</span>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Cari nama masjid atau desa..."
-          style={{width:"100%",padding:"8px 12px 8px 32px",borderRadius:24,border:"1px solid #e2d9c8",
-            background:"white",fontSize:13,outline:"none",color:"#1a1a1a"}}/>
-      </div>
-      <button onClick={()=>setShowFilter(!showFilter)} style={{padding:"8px 14px",borderRadius:24,
-        border:"1px solid #e2d9c8",background:af>0?"#1B4332":"white",color:af>0?"white":"#1B4332",
-        cursor:"pointer",fontSize:12,fontWeight:600}}>
-        ⚙ Filter {af>0&&`(${af})`}
-      </button>
-    </div>
-    {showFilter&&<div style={{background:"white",borderRadius:12,padding:"12px 14px",marginBottom:12,
-      border:"1px solid #e2d9c8",display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
-      {[{label:"Desa",value:filterDesa,set:setFilterDesa,opts:[["","Semua Desa"],...desaList.map(d=>[d,d])]},
-        {label:"Klasifikasi",value:filterKlas,set:setFilterKlas,opts:[["","Semua Klasifikasi"],...klasList.map(k=>[k,k])]},
-        {label:"Kondisi",value:filterKondisi,set:setFilterKondisi,opts:[["","Semua Kondisi"],...["Baik","Sedang","Rusak Ringan","Rusak Berat"].map(k=>[k,k])]},
-      ].map(f=><div key={f.label} style={{position:"relative"}}>
-        <span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:11,pointerEvents:"none",color:"#6b7280"}}>▼</span>
-        <select value={f.value} onChange={e=>f.set(e.target.value)}
-          style={{padding:"7px 28px 7px 12px",borderRadius:8,fontSize:13,border:"1px solid #e8e0d0",
-            background:"white",color:"#374151",cursor:"pointer",outline:"none",minWidth:150}}>
-          {f.opts.map(([v,l])=><option key={v} value={v}>{l}</option>)}
-        </select>
-      </div>)}
-      {af>0&&<button onClick={reset} style={{padding:"7px 14px",borderRadius:8,border:"1px solid #fca5a5",
-        background:"#fef2f2",color:"#dc2626",fontSize:13,cursor:"pointer",fontWeight:500}}>✕ Reset</button>}
-    </div>}
-    <div style={{fontSize:12,color:"#9ca3af",marginBottom:14}}>
-      Menampilkan <strong style={{color:"#1B4332"}}>{filtered.length}</strong> dari {data.length} data
-    </div>
-    {error&&<div style={{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:12,padding:"14px 18px",color:"#dc2626",fontSize:13,marginBottom:16}}>
-      <strong>Gagal memuat:</strong> {error}
-    </div>}
-    {loading&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:16}}>
-      {[1,2,3,4,5,6].map(i=><div key={i} style={{background:"white",borderRadius:14,overflow:"hidden",border:"1px solid #e8e0d0"}}>
-        <div style={{height:176,background:"linear-gradient(90deg,#f0ebe0 25%,#e8e0d0 50%,#f0ebe0 75%)",backgroundSize:"200% 100%",animation:"shimmer 1.5s infinite"}}/>
-        <div style={{padding:"12px 14px"}}>{[80,60,90].map((w,j)=><div key={j} style={{height:12,background:"#f0ebe0",borderRadius:6,marginBottom:8,width:w+"%"}}/>)}</div>
-      </div>)}
-    </div>}
-    {!loading&&!error&&filtered.length===0&&<div style={{textAlign:"center",padding:"60px 20px",color:"#9ca3af"}}>
-      <div style={{fontSize:48,marginBottom:12}}>🔍</div>
-      <div style={{fontSize:16,fontWeight:500,marginBottom:4}}>Tidak ditemukan</div>
-      <button onClick={reset} style={{marginTop:14,padding:"8px 20px",borderRadius:8,border:"none",background:"#1B4332",color:"white",fontSize:13,cursor:"pointer"}}>Reset</button>
-    </div>}
-    {!loading&&!error&&filtered.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:16}}>
-      {filtered.map(m=><KartuMasjid key={m.id} masjid={m} onClick={onSelect}/>)}
-    </div>}
-  </div>;
-}
+      // ── Nama Muadzin ────────────────────────────────────────
+      NAMA_MUADZIN_1:         49,
+      NAMA_MUADZIN_2:         50,
+      NAMA_MUADZIN_3:         51,
+      NAMA_MUADZIN_4:         52,
+      NAMA_MUADZIN_5:         53,
+      NAMA_MUADZIN_LAIN:      54,
 
-// ── TAB PETA ──
-function TabPeta({data,onSelect}){
-  const mapRef=useRef(null);
-  const leafletRef=useRef(null);
-  const markersRef=useRef([]);
-  const denganLL=useMemo(()=>data.filter(m=>m.latLng),[data]);
-  const tanpaLL=useMemo(()=>data.filter(m=>!m.latLng),[data]);
+      // ── Nama Marbot ─────────────────────────────────────────
+      NAMA_MARBOT_1:          55,
+      NAMA_MARBOT_2:          56,
+      NAMA_MARBOT_LAIN:       57,
 
-  useEffect(()=>{
-    if(!mapRef.current||leafletRef.current)return;
-    const map=L.map(mapRef.current,{center:CFG.CENTER,zoom:13});
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-      attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:19
-    }).addTo(map);
-    leafletRef.current=map;
-    return()=>{map.remove();leafletRef.current=null;};
-  },[]);
+      // ── Remaja Masjid ───────────────────────────────────────
+      JUMLAH_REMAJA:          58,
+      NAMA_KETUA_REMAJA:      59,
+      WA_KETUA_REMAJA:        60,   // 🔒 SENSITIF — tidak ditampilkan
+      PENGURUS_REMAJA_LAIN:   61,
 
-  useEffect(()=>{
-    const map=leafletRef.current;
-    if(!map)return;
-    markersRef.current.forEach(m=>m.remove());
-    markersRef.current=[];
-    denganLL.forEach(masjid=>{
-      const isMusholla=masjid.klasifikasi?.toUpperCase().includes("MUSHOLLA");
-      const k=masjid.kondisiBgn||"";
-      const warna=k.includes("Rusak Berat")?"#ef4444":k.includes("Rusak Ringan")?"#f97316":k.includes("Sedang")?"#eab308":"#1B4332";
-      const icon=L.divIcon({
-        html:`<div style="width:32px;height:32px;border-radius:50% 50% 50% 0;background:${warna};border:3px solid white;box-shadow:0 3px 10px rgba(0,0,0,.3);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;">
-          <span style="transform:rotate(45deg);font-size:13px;">${isMusholla?"🏠":"🕌"}</span></div>`,
-        className:"",iconSize:[32,32],iconAnchor:[16,32],popupAnchor:[0,-36],
-      });
-      const fotoHtml=masjid.fotoUtama?`<img src="${masjid.fotoUtama}" style="width:100%;height:88px;object-fit:cover;border-radius:8px;margin-bottom:8px;" onerror="this.style.display='none'"/>`:"";
-      const popup=L.popup({maxWidth:230}).setContent(`
-        <div style="font-family:'DM Sans',sans-serif;min-width:190px;">
-          ${fotoHtml}
-          <div style="font-size:10px;color:#D4A853;font-weight:700;letter-spacing:.5px;margin-bottom:2px;">${isMusholla?"MUSHOLLA":"MASJID"}</div>
-          <div style="font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:#1B4332;margin-bottom:4px;">${masjid.namaMasjid}</div>
-          <div style="font-size:11px;color:#6b7280;margin-bottom:8px;">📍 ${masjid.desa}</div>
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:11px;color:#6b7280;">Jumat: ${masjid.jamaahJumat?"±"+masjid.jamaahJumat:"—"}</span>
-            <button onclick="window.__pilih(${masjid.id})" style="font-size:11px;padding:4px 10px;background:#1B4332;color:white;border:none;border-radius:12px;cursor:pointer;font-weight:600;">Detail →</button>
-          </div>
-        </div>`);
-      const marker=L.marker(masjid.latLng,{icon}).addTo(map).bindPopup(popup);
-      markersRef.current.push(marker);
+      // ── Majelis Taklim 1 ────────────────────────────────────
+      NAMA_MAJELIS:           62,
+      NAMA_PENGASUH:          63,
+      KITAB_DIKAJI:           64,
+      JAMAAH_RUTIN:           65,
+      MAJELIS_LAIN_FLAG:      66,
+
+      // ── Majelis Taklim 2 ────────────────────────────────────
+      NAMA_MAJELIS_2:         67,
+      NAMA_PENGASUH_2:        68,
+      KITAB_DIKAJI_2:         69,
+      JAMAAH_RUTIN_2:         70,
+
+      // ── Fasilitas ───────────────────────────────────────────
+      KONDISI_BGN:            71,
+      AULA:                   72,
+      PROGRAM_SOSIAL:         73,
+      TPQ_ANAK:               74,
+      TPQ_DEWASA:             75,
+      PERPUSTAKAAN:           76,
+      KIBLAT:                 77,
+
+      // ── Detail TPQ & Perpustakaan ───────────────────────────
+      METODE_TPQ_ANAK:        78,
+      METODE_TPQ_DEWASA:      79,
+      JUMLAH_BUKU:            80,
+      KONDISI_BUKU:           81,
+      NOMOR_SERTIF_KIBLAT:    82,
+      FOTO_SERTIF_KIBLAT:     83,
+
+      // ── Tanah & Wakaf ───────────────────────────────────────
+      STATUS_TANAH:           84,
+      NOMOR_SERTIF_WAKAF:     85,
+      TGL_SERTIF_WAKAF:       86,
+      NOMOR_AIW:              87,
+      TGL_AIW:                88,
+      NAMA_WAKIF:             89,
+      NAMA_NADZIR:            90,
+      FOTO_SERTIF_WAKAF:      91,
+      FOTO_AIW:               92,
+      WAKAF_PRODUKTIF:        93,
+      USAHA_PRODUKTIF:        94,
+
+      // ── Rekening & Bantuan ──────────────────────────────────
+      REKENING:               95,
+      WA_BANTUAN:             96,
+
+      // ── Foto Dokumentasi ────────────────────────────────────
+      FOTO_DEPAN:             97,
+      FOTO_DALAM:             98,
+      FOTO_WUDHU:             99,
+      FOTO_WC:                100,
+      FOTO_LAIN:              101,
+
+      // ── Surveyor ────────────────────────────────────────────
+      NAMA_SURVEYOR:          102,
+
+      // ── Kolom Generated by Apps Script (103–115) ────────────
+      FOLDER_ID:              103,
+      FOLDER_URL:             104,
+      URL_FOTO_DEPAN:         105,
+      URL_FOTO_DALAM:         106,
+      URL_FOTO_WUDHU:         107,
+      URL_FOTO_WC:            108,
+      URL_FOTO_LAIN:          109,
+      URL_FOTO_SERTIF_WAKAF:  110,
+      URL_FOTO_AIW:           111,
+      URL_FOTO_SERTIF_KIBLAT: 112,
+      JUMLAH_FOTO:            113,
+      STATUS_PROSES:          114,
+      PDF_URL:                115,
+    };
+
+    // ════════════════════════════════════════════════════════════
+    //  HELPER: ambil value aman dari row
+    // ════════════════════════════════════════════════════════════
+    const cv = (row, idx) => {
+      const v = row[idx];
+      if (v === undefined || v === null) return "";
+      return String(v).trim();
+    };
+
+    // Gabungkan nama dari beberapa index, lewati yang kosong
+    const gabung = (row, idxList) =>
+      idxList.map(i => cv(row, i)).filter(Boolean).join(", ");
+
+    // ════════════════════════════════════════════════════════════
+    //  MAPPER: row spreadsheet → objek masjid
+    //  🔒 waKetua, waSekretaris, waKetuaRemaja TIDAK disertakan
+    // ════════════════════════════════════════════════════════════
+    const rowToMasjid = (row, id) => ({
+      id,
+      // Identitas
+      timestamp:          cv(row, IDX.TIMESTAMP),
+      lokasiSurvey:       cv(row, IDX.LOKASI_SURVEY),   // "Masjid"/"Musholla"
+      idSimas:            cv(row, IDX.ID_SIMAS),
+      namaMasjid:         cv(row, IDX.NAMA_MASJID),
+      tipologi:           cv(row, IDX.TIPOLOGI),
+      afiliasi:           cv(row, IDX.AFILIASI),
+      tahunBerdiri:       cv(row, IDX.TAHUN_BERDIRI),
+      kabkota:            cv(row, IDX.KABKOTA),
+      kecamatan:          cv(row, IDX.KECAMATAN),
+      desa:               cv(row, IDX.DESA),
+      alamat:             cv(row, IDX.ALAMAT),
+      linkGmaps:          cv(row, IDX.LINK_GMAPS),
+      koordinatBT:        cv(row, IDX.KOORDINAT_BT),
+      koordinatLS:        cv(row, IDX.KOORDINAT_LS),
+      email:              cv(row, IDX.EMAIL),
+      medsos:             cv(row, IDX.MEDSOS),
+
+      // Pengurus (🔒 tanpa WA)
+      namaKetua:          cv(row, IDX.NAMA_KETUA),
+      namaSekretaris:     cv(row, IDX.NAMA_SEKRETARIS),
+      pengurusLain:       cv(row, IDX.PENGURUS_LAIN),
+      skTakmir:           cv(row, IDX.SK_TAKMIR),
+      skLevel:            cv(row, IDX.SK_LEVEL),
+
+      // Fisik
+      luasTanah:          cv(row, IDX.LUAS_TANAH),
+      luasBangunan:       cv(row, IDX.LUAS_BANGUNAN),
+      dayaTampung:        cv(row, IDX.DAYA_TAMPUNG),
+
+      // Jamaah
+      jamaahTotal:        cv(row, IDX.JAMAAH_TOTAL),
+      jamaahMaghrib:      cv(row, IDX.JAMAAH_MAGHRIB),
+      jamaahDhuhur:       cv(row, IDX.JAMAAH_DHUHUR),
+      jamaahSubuh:        cv(row, IDX.JAMAAH_SUBUH),
+      jamaahJumat:        cv(row, IDX.JAMAAH_JUMAT),
+
+      // SDM Ibadah — gabung nama dari kolom atomik
+      jumlahImam:         cv(row, IDX.JUMLAH_IMAM),
+      namaImamGabung:     gabung(row, [IDX.NAMA_IMAM_1, IDX.NAMA_IMAM_2, IDX.NAMA_IMAM_3,
+                                       IDX.NAMA_IMAM_4, IDX.NAMA_IMAM_5, IDX.NAMA_IMAM_LAIN]),
+      jumlahMuadzin:      cv(row, IDX.JUMLAH_MUADZIN),
+      namaMuadzinGabung:  gabung(row, [IDX.NAMA_MUADZIN_1, IDX.NAMA_MUADZIN_2, IDX.NAMA_MUADZIN_3,
+                                       IDX.NAMA_MUADZIN_4, IDX.NAMA_MUADZIN_5, IDX.NAMA_MUADZIN_LAIN]),
+      jumlahKhotib:       cv(row, IDX.JUMLAH_KHOTIB),
+      namaKhotibGabung:   gabung(row, [IDX.NAMA_KHOTIB_1, IDX.NAMA_KHOTIB_2,
+                                       IDX.NAMA_KHOTIB_3, IDX.NAMA_KHOTIB_LAIN]),
+      jumlahMarbot:       cv(row, IDX.JUMLAH_MARBOT),
+      namaMarbotGabung:   gabung(row, [IDX.NAMA_MARBOT_1, IDX.NAMA_MARBOT_2, IDX.NAMA_MARBOT_LAIN]),
+
+      // Remaja Masjid (🔒 tanpa WA Ketua Remaja)
+      jumlahRemaja:       cv(row, IDX.JUMLAH_REMAJA),
+      namaKetuaRemaja:    cv(row, IDX.NAMA_KETUA_REMAJA),
+      pengurusRemajaLain: cv(row, IDX.PENGURUS_REMAJA_LAIN),
+
+      // Majelis Taklim
+      namaMajelis:        cv(row, IDX.NAMA_MAJELIS),
+      namaPengasuh:       cv(row, IDX.NAMA_PENGASUH),
+      kitabDikaji:        cv(row, IDX.KITAB_DIKAJI),
+      jamaahRutin:        cv(row, IDX.JAMAAH_RUTIN),
+      namaMajelis2:       cv(row, IDX.NAMA_MAJELIS_2),
+      namaPengasuh2:      cv(row, IDX.NAMA_PENGASUH_2),
+      kitabDikaji2:       cv(row, IDX.KITAB_DIKAJI_2),
+      jamaahRutin2:       cv(row, IDX.JAMAAH_RUTIN_2),
+
+      // Fasilitas
+      kondisiBgn:         cv(row, IDX.KONDISI_BGN),
+      aula:               cv(row, IDX.AULA),
+      programSosial:      cv(row, IDX.PROGRAM_SOSIAL),
+      tpqAnak:            cv(row, IDX.TPQ_ANAK),
+      tpqDewasa:          cv(row, IDX.TPQ_DEWASA),
+      perpustakaan:       cv(row, IDX.PERPUSTAKAAN),
+      kiblat:             cv(row, IDX.KIBLAT),
+      metodeTPQAnak:      cv(row, IDX.METODE_TPQ_ANAK),
+      metodeTPQDewasa:    cv(row, IDX.METODE_TPQ_DEWASA),
+      jumlahBuku:         cv(row, IDX.JUMLAH_BUKU),
+      kondisiBuku:        cv(row, IDX.KONDISI_BUKU),
+      nomorSertifKiblat:  cv(row, IDX.NOMOR_SERTIF_KIBLAT),
+
+      // Tanah & Wakaf
+      statusTanah:        cv(row, IDX.STATUS_TANAH),
+      nomorSertifWakaf:   cv(row, IDX.NOMOR_SERTIF_WAKAF),
+      tglSertifWakaf:     cv(row, IDX.TGL_SERTIF_WAKAF),
+      nomorAIW:           cv(row, IDX.NOMOR_AIW),
+      tglAIW:             cv(row, IDX.TGL_AIW),
+      namaWakif:          cv(row, IDX.NAMA_WAKIF),
+      namaNadzir:         cv(row, IDX.NAMA_NADZIR),
+      wakafProduktif:     cv(row, IDX.WAKAF_PRODUKTIF),
+      usahaProduktif:     cv(row, IDX.USAHA_PRODUKTIF),
+
+      // Rekening & Bantuan
+      rekening:           cv(row, IDX.REKENING),
+      waBantuan:          cv(row, IDX.WA_BANTUAN),
+
+      // Surveyor
+      namaSurveyor:       cv(row, IDX.NAMA_SURVEYOR),
+
+      // Kolom Generated
+      folderUrl:          cv(row, IDX.FOLDER_URL),
+      urlFotoDepan:       cv(row, IDX.URL_FOTO_DEPAN),
+      urlFotoDalam:       cv(row, IDX.URL_FOTO_DALAM),
+      urlFotoWudhu:       cv(row, IDX.URL_FOTO_WUDHU),
+      urlFotoWC:          cv(row, IDX.URL_FOTO_WC),
+      urlFotoLain:        cv(row, IDX.URL_FOTO_LAIN),
+      urlFotoSertifWakaf: cv(row, IDX.URL_FOTO_SERTIF_WAKAF),
+      urlFotoAIW:         cv(row, IDX.URL_FOTO_AIW),
+      urlFotoKiblat:      cv(row, IDX.URL_FOTO_SERTIF_KIBLAT),
+      jumlahFoto:         cv(row, IDX.JUMLAH_FOTO),
+      statusProses:       cv(row, IDX.STATUS_PROSES),
+      pdfUrl:             cv(row, IDX.PDF_URL),
+
+      // Turunan — foto utama dari URL_FOTO_DEPAN (kolom generated)
+      fotoUtama: cv(row, IDX.URL_FOTO_DEPAN).split(",")[0].trim(),
     });
-    if(denganLL.length>1){
-      map.fitBounds(L.latLngBounds(denganLL.map(m=>m.latLng)),{padding:[40,40]});
+
+    // ════════════════════════════════════════════════════════════
+    //  HOOK: FETCH DATA DARI GOOGLE SHEETS
+    // ════════════════════════════════════════════════════════════
+    function useSheetData() {
+      const [data,     setData]     = useState([]);
+      const [loading,  setLoading]  = useState(true);
+      const [error,    setError]    = useState(null);
+      const [lastSync, setLastSync] = useState(null);
+
+      const fetchData = useCallback(async () => {
+        setLoading(true); setError(null);
+        try {
+          // Range: A2:BQ = kolom A s.d. BQ (kolom ke-69 = index 68),
+          // cukup untuk menampung sampai kolom 116 (PDF_URL)
+          const range = encodeURIComponent(`${SHEETS_CONFIG.SHEET_NAME}!A2:DP`);
+          const url   = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_CONFIG.SPREADSHEET_ID}/values/${range}?key=${SHEETS_CONFIG.API_KEY}`;
+          const res   = await fetch(url);
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err?.error?.message || "Gagal mengambil data dari Sheets");
+          }
+          const json = await res.json();
+          const rows = json.values || [];
+          setData(rows.map((row, i) => rowToMasjid(row, i + 1)));
+          setLastSync(new Date());
+        } catch(e) {
+          setError(e.message);
+        } finally {
+          setLoading(false);
+        }
+      }, []);
+
+      useEffect(() => { fetchData(); }, [fetchData]);
+      return { data, loading, error, lastSync, refetch: fetchData };
     }
-  },[denganLL]);
 
-  useEffect(()=>{
-    window.__pilih=(id)=>{const m=data.find(x=>x.id===id);if(m)onSelect(m);};
-    return()=>{delete window.__pilih;};
-  },[data,onSelect]);
-
-  return<div>
-    <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:12,background:"white",
-      borderRadius:12,padding:"10px 14px",border:"1px solid #e2d9c8",alignItems:"center"}}>
-      <span style={{fontSize:12,color:"#6b7280",fontWeight:500}}>Legenda:</span>
-      {[["#1B4332","Baik"],["#eab308","Sedang"],["#f97316","Rusak Ringan"],["#ef4444","Rusak Berat"]].map(([c,l])=>(
-        <span key={l} style={{display:"flex",alignItems:"center",gap:5,fontSize:12}}>
-          <span style={{width:10,height:10,borderRadius:"50%",background:c,display:"inline-block"}}/>
-          {l}
+    // ════════════════════════════════════════════════════════════
+    //  KOMPONEN: BADGE KONDISI
+    // ════════════════════════════════════════════════════════════
+    const KONDISI_STYLE = {
+      "Baik":         { bg:"#dcfce7", color:"#15803d", dot:"#22c55e" },
+      "Sedang":       { bg:"#fef9c3", color:"#a16207", dot:"#eab308" },
+      "Rusak Ringan": { bg:"#ffedd5", color:"#c2410c", dot:"#f97316" },
+      "Rusak Berat":  { bg:"#fee2e2", color:"#b91c1c", dot:"#ef4444" },
+    };
+    function KondisiBadge({ kondisi }) {
+      const s = KONDISI_STYLE[kondisi] || { bg:"#f3f4f6", color:"#6b7280", dot:"#9ca3af" };
+      return (
+        <span style={{ display:"inline-flex", alignItems:"center", gap:5,
+          background:s.bg, color:s.color, fontSize:11, fontWeight:600,
+          padding:"3px 9px", borderRadius:20 }}>
+          <span style={{ width:6, height:6, borderRadius:"50%",
+            background:s.dot, display:"inline-block" }}/>
+          {kondisi || "—"}
         </span>
-      ))}
-      <span style={{marginLeft:"auto",fontSize:12,color:"#9ca3af"}}>
-        🗺️ {denganLL.length}/{data.length} ada koordinat
-      </span>
-    </div>
-    <div ref={mapRef} style={{width:"100%",height:520,borderRadius:16,overflow:"hidden",
-      border:"1px solid #e2d9c8",boxShadow:"0 4px 20px rgba(0,0,0,.08)"}}/>
-    {tanpaLL.length>0&&<div style={{marginTop:14,background:"#fffbeb",border:"1px solid #fde68a",
-      borderRadius:12,padding:"12px 16px"}}>
-      <div style={{fontSize:13,fontWeight:600,color:"#92400e",marginBottom:6}}>
-        ⚠️ {tanpaLL.length} belum ada koordinat GPS:
-      </div>
-      <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-        {tanpaLL.map(m=><button key={m.id} onClick={()=>onSelect(m)} style={{fontSize:11,padding:"3px 10px",
-          borderRadius:20,border:"1px solid #fbbf24",background:"white",color:"#92400e",cursor:"pointer"}}>
-          {m.namaMasjid}
-        </button>)}
-      </div>
-    </div>}
-  </div>;
-}
+      );
+    }
 
-// ── TAB STATISTIK ──
-function StatBar({value,max,color="#1B4332"}){
-  const pct=max>0?Math.round((value/max)*100):0;
-  return<div style={{display:"flex",alignItems:"center",gap:8}}>
-    <div style={{flex:1,height:8,background:"#f0ebe0",borderRadius:4,overflow:"hidden"}}>
-      <div style={{width:pct+"%",height:"100%",background:color,borderRadius:4,transition:"width .6s ease"}}/>
-    </div>
-    <span style={{fontSize:12,fontWeight:600,color,minWidth:24,textAlign:"right"}}>{value}</span>
-  </div>;
-}
-
-function TabStatistik({data}){
-  const totalMasjid=data.filter(m=>!m.klasifikasi?.toUpperCase().includes("MUSHOLLA")).length;
-  const totalMusholla=data.filter(m=>m.klasifikasi?.toUpperCase().includes("MUSHOLLA")).length;
-  const totalJamaah=data.reduce((s,m)=>s+(parseInt(m.jamaahJumat)||0),0);
-  const bersertif=data.filter(m=>m.statusTanah?.includes("Bersertifikat")).length;
-  const punyaTPQ=data.filter(m=>m.tpqAnak?.toLowerCase().startsWith("ada")).length;
-  const rusak=data.filter(m=>m.kondisiBgn?.includes("Rusak")).length;
-  const punyaLL=data.filter(m=>m.latLng).length;
-
-  const perDesa=useMemo(()=>{
-    const map={};
-    data.forEach(m=>{
-      if(!m.desa)return;
-      if(!map[m.desa])map[m.desa]={desa:m.desa,total:0,masjid:0,musholla:0,jamaah:0,bersertif:0,rusak:0,tpq:0};
-      map[m.desa].total++;
-      if(m.klasifikasi?.toUpperCase().includes("MUSHOLLA"))map[m.desa].musholla++;
-      else map[m.desa].masjid++;
-      map[m.desa].jamaah+=parseInt(m.jamaahJumat)||0;
-      if(m.statusTanah?.includes("Bersertifikat"))map[m.desa].bersertif++;
-      if(m.kondisiBgn?.includes("Rusak"))map[m.desa].rusak++;
-      if(m.tpqAnak?.toLowerCase().startsWith("ada"))map[m.desa].tpq++;
-    });
-    return Object.values(map).sort((a,b)=>b.total-a.total);
-  },[data]);
-
-  const perKondisi=["Baik","Sedang","Rusak Ringan","Rusak Berat"].map(k=>({
-    k,n:data.filter(m=>m.kondisiBgn===k).length
-  }));
-
-  const afilMap={};
-  data.forEach(m=>{const a=m.afiliasi||"Tidak Tercatat";afilMap[a]=(afilMap[a]||0)+1;});
-  const perAfil=Object.entries(afilMap).sort((a,b)=>b[1]-a[1]);
-
-  const SC=({icon,label,value,sub,color="#1B4332"})=>(
-    <div style={{background:"white",borderRadius:14,padding:"16px 18px",border:"1px solid #e2d9c8",boxShadow:"0 2px 8px rgba(0,0,0,.04)"}}>
-      <div style={{fontSize:24,marginBottom:6}}>{icon}</div>
-      <div style={{fontSize:26,fontWeight:800,color,fontFamily:"'Playfair Display',serif"}}>{value}</div>
-      <div style={{fontSize:13,fontWeight:600,color:"#1a1a1a",marginTop:2}}>{label}</div>
-      {sub&&<div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>{sub}</div>}
-    </div>
-  );
-
-  return<div style={{animation:"fadeIn .3s ease"}}>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:12,marginBottom:20}}>
-      <SC icon="🕌" label="Total Masjid" value={totalMasjid}/>
-      <SC icon="🏠" label="Total Musholla" value={totalMusholla}/>
-      <SC icon="👥" label="Jamaah Jumat" value={"±"+totalJamaah.toLocaleString("id-ID")} sub="estimasi gabungan"/>
-      <SC icon="📜" label="Bersertifikat" value={bersertif} sub={`dari ${data.length} data`} color="#047857"/>
-      <SC icon="📚" label="Punya TPQ" value={punyaTPQ} color="#7e22ce"/>
-      <SC icon="⚠️" label="Perlu Perhatian" value={rusak} sub="kondisi rusak" color="#c2410c"/>
-      <SC icon="🗺️" label="Ada Koordinat" value={punyaLL} sub={`dari ${data.length} data`} color="#1d4ed8"/>
-    </div>
-
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
-      <div style={{background:"white",borderRadius:14,padding:"18px",border:"1px solid #e2d9c8"}}>
-        <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,color:"#1B4332",marginBottom:14}}>
-          📊 Kondisi Bangunan
+    // ════════════════════════════════════════════════════════════
+    //  KOMPONEN: ACCORDION SEKSI
+    // ════════════════════════════════════════════════════════════
+    function AccordionSeksi({ icon, judul, badge, children, defaultOpen=false }) {
+      const [open, setOpen] = useState(defaultOpen);
+      return (
+        <div style={{ borderBottom:"1px solid #e2d9c8" }}>
+          <button onClick={() => setOpen(!open)} style={{
+            width:"100%", display:"flex", alignItems:"center", gap:12,
+            padding:"14px 20px", background: open ? "#f8f4ed" : "white",
+            border:"none", cursor:"pointer", textAlign:"left", transition:"background .2s",
+          }}>
+            <span style={{ width:32, height:32, borderRadius:"50%", flexShrink:0,
+              background: open ? "#1B4332" : "#f0e8d8",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              fontSize:15, transition:"background .2s" }}>{icon}</span>
+            <span style={{ flex:1, fontFamily:"'Playfair Display',serif",
+              fontSize:14, fontWeight:700, color:"#1B4332" }}>{judul}</span>
+            {badge && <span style={{ fontSize:11, padding:"2px 8px", borderRadius:20,
+              background:"#e8f5e9", color:"#1B4332", fontWeight:600, marginRight:6 }}>{badge}</span>}
+            <span style={{ color:"#1B4332",
+              transform: open?"rotate(180deg)":"rotate(0deg)",
+              transition:"transform .25s", fontSize:12 }}>▼</span>
+          </button>
+          <div style={{ maxHeight: open ? 2000 : 0, overflow:"hidden", transition:"max-height .4s ease" }}>
+            <div style={{ padding:"4px 20px 18px 64px" }}>{children}</div>
+          </div>
         </div>
-        {perKondisi.map(({k,n})=>{
-          const s=KS[k]||{dot:"#9ca3af"};
-          return<div key={k} style={{marginBottom:10}}>
-            <div style={{fontSize:12,fontWeight:500,marginBottom:4}}>{k}</div>
-            <StatBar value={n} max={data.length} color={s.dot}/>
-          </div>;
-        })}
-      </div>
-      <div style={{background:"white",borderRadius:14,padding:"18px",border:"1px solid #e2d9c8"}}>
-        <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,color:"#1B4332",marginBottom:14}}>
-          🤝 Afiliasi Ormas
-        </div>
-        {perAfil.slice(0,6).map(([af,jml])=><div key={af} style={{marginBottom:10}}>
-          <div style={{fontSize:12,fontWeight:500,marginBottom:4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{af}</div>
-          <StatBar value={jml} max={data.length}/>
-        </div>)}
-      </div>
-    </div>
+      );
+    }
 
-    <div style={{background:"white",borderRadius:14,padding:"18px",border:"1px solid #e2d9c8"}}>
-      <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,color:"#1B4332",marginBottom:14}}>
-        🏘️ Rekapitulasi Per Desa
-      </div>
-      <div style={{overflowX:"auto"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-          <thead>
-            <tr style={{background:"#f8f4ed"}}>
-              {["Desa","Masjid","Musholla","Total","Jamaah Jumat","Bersertifikat","TPQ","Perlu Perhatian"].map(h=>(
-                <th key={h} style={{padding:"8px 12px",textAlign:"left",fontWeight:600,color:"#1B4332",
-                  whiteSpace:"nowrap",borderBottom:"2px solid #e2d9c8"}}>{h}</th>
+    // ════════════════════════════════════════════════════════════
+    //  KOMPONEN: FIELD ROW
+    // ════════════════════════════════════════════════════════════
+    function FR({ label, value, mono=false, full=false }) {
+      if (!value) return null;
+      return (
+        <div style={{ display:"flex", gap:10, marginBottom:7, alignItems:"flex-start",
+          flexDirection: full ? "column" : "row" }}>
+          <span style={{ fontSize:12, color:"#9ca3af", minWidth: full ? 0 : 136,
+            flexShrink:0, paddingTop:1 }}>{label}</span>
+          <span style={{ fontSize:13, color:"#1a1a1a", lineHeight:1.5, flex:1,
+            fontFamily: mono ? "'Courier New',monospace" : "inherit",
+            wordBreak:"break-word" }}>{value}</span>
+        </div>
+      );
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  KOMPONEN: GALERI FOTO (URL bisa koma-separated)
+    // ════════════════════════════════════════════════════════════
+    function FotoGaleri({ label, urlString, icon }) {
+      const urls = (urlString || "").split(",").map(u => u.trim()).filter(Boolean);
+      if (urls.length === 0) return null;
+      return (
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontSize:12, color:"#9ca3af", marginBottom:6 }}>
+            {icon} {label} ({urls.length} foto)
+          </div>
+          <div style={{ display:"grid",
+            gridTemplateColumns:"repeat(auto-fill,minmax(100px,1fr))", gap:6 }}>
+            {urls.map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noreferrer"
+                style={{ display:"block", borderRadius:8, overflow:"hidden",
+                  aspectRatio:"1", background:"#f3f4f6", border:"1px solid #e5e7eb" }}>
+                <img src={url} alt={label + " " + (i+1)}
+                  style={{ width:"100%", height:"100%", objectFit:"cover" }}
+                  onError={e => { e.target.style.display="none"; }}
+                />
+              </a>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  KOMPONEN: MODAL DETAIL
+    // ════════════════════════════════════════════════════════════
+    function ModalDetail({ masjid, onClose }) {
+      if (!masjid) return null;
+      const isMusholla      = masjid.lokasiSurvey?.toUpperCase().includes("MUSHOLLA");
+      const wakafBersertif  = masjid.statusTanah?.includes("Bersertifikat") ||
+                              !!masjid.nomorSertifWakaf;
+      const adaRemaja       = !!masjid.jumlahRemaja || !!masjid.namaKetuaRemaja;
+      const adaMajelis      = !!masjid.namaMajelis;
+      const adaMajelis2     = !!masjid.namaMajelis2;
+      const koordinatLink   = masjid.linkGmaps ||
+        (masjid.koordinatBT && masjid.koordinatLS
+          ? `https://maps.google.com/?q=${masjid.koordinatLS},${masjid.koordinatBT}`
+          : null);
+
+      return (
+        <div onClick={onClose} style={{
+          position:"fixed", inset:0, zIndex:1000,
+          background:"rgba(15,30,20,0.65)", backdropFilter:"blur(6px)",
+          display:"flex", alignItems:"flex-start", justifyContent:"center",
+          padding:"16px", overflowY:"auto",
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            width:"100%", maxWidth:700, background:"white",
+            borderRadius:18, overflow:"hidden", margin:"auto",
+            boxShadow:"0 32px 80px rgba(0,0,0,0.3)",
+            fontFamily:"'DM Sans',sans-serif",
+          }}>
+
+            {/* ── Header Foto ─────────────────────────────── */}
+            <div style={{ position:"relative", height:220,
+              background:"#1B4332", overflow:"hidden" }}>
+              {masjid.fotoUtama ? (
+                <img src={masjid.fotoUtama} alt={masjid.namaMasjid}
+                  style={{ width:"100%", height:"100%", objectFit:"cover", opacity:.7 }}
+                  onError={e => { e.target.style.display="none"; }}
+                />
+              ) : (
+                <div style={{ display:"flex", alignItems:"center",
+                  justifyContent:"center", height:"100%", fontSize:64, opacity:.2 }}>🕌</div>
+              )}
+              <div style={{ position:"absolute", inset:0,
+                background:"linear-gradient(to top,rgba(27,67,50,.95) 0%,rgba(27,67,50,.3) 60%,transparent 100%)"
+              }}/>
+              <button onClick={onClose} style={{
+                position:"absolute", top:12, right:12, width:32, height:32,
+                borderRadius:"50%", background:"rgba(255,255,255,.15)",
+                border:"1px solid rgba(255,255,255,.2)", color:"white",
+                cursor:"pointer", fontSize:16, display:"flex",
+                alignItems:"center", justifyContent:"center", backdropFilter:"blur(4px)",
+              }}>×</button>
+              <div style={{ position:"absolute", bottom:0, left:0, right:0, padding:"0 20px 18px" }}>
+                <div style={{ fontSize:10, color:"#D4A853", fontWeight:700,
+                  letterSpacing:"1px", marginBottom:4 }}>
+                  {isMusholla ? "MUSHOLLA" : "MASJID"}
+                  {masjid.tipologi ? " · " + masjid.tipologi.toUpperCase() : ""}
+                </div>
+                <div style={{ fontFamily:"'Playfair Display',serif", fontSize:20,
+                  fontWeight:700, color:"white", lineHeight:1.2, marginBottom:4 }}>
+                  {masjid.namaMasjid}
+                </div>
+                <div style={{ fontSize:12, color:"rgba(255,255,255,.75)",
+                  display:"flex", alignItems:"center", gap:5 }}>
+                  📍 {masjid.desa}, Kec. {masjid.kecamatan}, {masjid.kabkota}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Statistik Ringkas ─────────────────────── */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)",
+              borderBottom:"1px solid #e2d9c8" }}>
+              {[
+                { lbl:"Berdiri",      val: masjid.tahunBerdiri || "—" },
+                { lbl:"Jamaah Jumat", val: masjid.jamaahJumat ? "±"+masjid.jamaahJumat : "—" },
+                { lbl:"Kondisi",      val: <KondisiBadge kondisi={masjid.kondisiBgn}/> },
+                { lbl:"Daya Tampung", val: masjid.dayaTampung ? masjid.dayaTampung+" org" : (wakafBersertif ? "✅ Wakaf" : "—") },
+              ].map((s,i) => (
+                <div key={i} style={{ padding:"12px 10px", textAlign:"center",
+                  borderRight: i<3 ? "1px solid #e2d9c8" : "none" }}>
+                  <div style={{ fontSize:10, color:"#9ca3af", marginBottom:3 }}>{s.lbl}</div>
+                  <div style={{ fontSize:12, fontWeight:600, color:"#1B4332" }}>{s.val}</div>
+                </div>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {perDesa.map((d,i)=><tr key={d.desa} style={{background:i%2===0?"white":"#fafaf7"}}>
-              <td style={{padding:"8px 12px",fontWeight:600,color:"#1B4332",whiteSpace:"nowrap"}}>{d.desa}</td>
-              <td style={{padding:"8px 12px",textAlign:"center"}}>{d.masjid}</td>
-              <td style={{padding:"8px 12px",textAlign:"center"}}>{d.musholla}</td>
-              <td style={{padding:"8px 12px",textAlign:"center",fontWeight:700}}>{d.total}</td>
-              <td style={{padding:"8px 12px",textAlign:"center"}}>{d.jamaah>0?"±"+d.jamaah.toLocaleString("id-ID"):"—"}</td>
-              <td style={{padding:"8px 12px",textAlign:"center"}}>
-                <span style={{color:d.bersertif===d.total?"#15803d":"#9ca3af"}}>{d.bersertif}/{d.total}</span>
-              </td>
-              <td style={{padding:"8px 12px",textAlign:"center"}}>
-                {d.tpq>0?<span style={{color:"#7e22ce",fontWeight:600}}>{d.tpq}</span>:"—"}
-              </td>
-              <td style={{padding:"8px 12px",textAlign:"center"}}>
-                {d.rusak>0?<span style={{color:"#c2410c",fontWeight:600}}>⚠️ {d.rusak}</span>:"✅"}
-              </td>
-            </tr>)}
-          </tbody>
-          <tfoot>
-            <tr style={{background:"#1B4332",color:"white"}}>
-              <td style={{padding:"8px 12px",fontWeight:700}}>TOTAL</td>
-              <td style={{padding:"8px 12px",textAlign:"center",fontWeight:700}}>{totalMasjid}</td>
-              <td style={{padding:"8px 12px",textAlign:"center",fontWeight:700}}>{totalMusholla}</td>
-              <td style={{padding:"8px 12px",textAlign:"center",fontWeight:700}}>{data.length}</td>
-              <td style={{padding:"8px 12px",textAlign:"center",fontWeight:700}}>±{totalJamaah.toLocaleString("id-ID")}</td>
-              <td style={{padding:"8px 12px",textAlign:"center",fontWeight:700}}>{bersertif}</td>
-              <td style={{padding:"8px 12px",textAlign:"center",fontWeight:700}}>{punyaTPQ}</td>
-              <td style={{padding:"8px 12px",textAlign:"center",fontWeight:700}}>{rusak}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      <div style={{marginTop:10,fontSize:11,color:"#9ca3af",textAlign:"right"}}>
-        * Berdasarkan {data.length} entri terverifikasi
-      </div>
-    </div>
-  </div>;
-}
+            </div>
 
-// ── CETAK ──
-function cetakProfil(masjid){
-  const tgl=new Date().toLocaleDateString("id-ID",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
-  const isMusholla=masjid.klasifikasi?.toUpperCase().includes("MUSHOLLA");
-  const r=(label,value)=>value?`<tr>
-    <td style="padding:5px 10px;font-size:12px;color:#6b7280;width:160px;vertical-align:top;">${label}</td>
-    <td style="padding:5px 10px;font-size:12px;color:#1a1a1a;">: ${value}</td></tr>`:"";
-  const s=(judul,isi)=>`<div style="margin-bottom:16px;">
-    <div style="background:#1B4332;color:white;padding:5px 12px;font-size:12px;font-weight:700;border-radius:6px;margin-bottom:6px;">${judul}</div>
-    <table style="width:100%;border-collapse:collapse;">${isi}</table></div>`;
-  const html=`
-    <style>@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;600&display=swap');
-    body{font-family:'DM Sans',sans-serif;color:#1a1a1a;}@media print{@page{size:A4;margin:15mm;}}</style>
-    <div style="max-width:720px;margin:0 auto;">
-      <div style="background:#1B4332;color:white;padding:20px 24px;border-radius:12px;margin-bottom:20px;display:flex;align-items:center;gap:16px;">
-        <div style="font-size:48px;">🕌</div>
-        <div>
-          <div style="font-size:10px;color:#D4A853;font-weight:700;letter-spacing:1px;margin-bottom:4px;">
-            PROFIL ${isMusholla?"MUSHOLLA":"MASJID"} · KEC. PILANGKENCENG, KAB. MADIUN</div>
-          <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:700;line-height:1.2;">${masjid.namaMasjid}</div>
-          <div style="font-size:12px;color:rgba(255,255,255,.75);margin-top:4px;">${masjid.desa} · Dicetak: ${tgl}</div>
-        </div>
-      </div>
-      ${s("IDENTITAS & LOKASI",r("Nama",masjid.namaMasjid)+r("Jenis",[masjid.klasifikasi,masjid.jenis].filter(Boolean).join(" — "))+r("ID SIMAS",masjid.idSimas)+r("Afiliasi",masjid.afiliasi)+r("Tahun Berdiri",masjid.tahunBerdiri)+r("Desa",masjid.desa)+r("Alamat",masjid.alamat)+r("Koordinat GPS",masjid.koordinat)+r("Email",masjid.email)+r("Media Sosial",masjid.medsos))}
-      ${s("ADMINISTRASI",r("SK Takmir",masjid.skTakmir)+r("Mengetahui",masjid.skLevel)+r("Luas Tanah",masjid.luasTanah?masjid.luasTanah+" m²":"")+r("Luas Bangunan",masjid.luasBangunan?masjid.luasBangunan+" m²":""))}
-      ${s("PENGURUS",r("Ketua Takmir",masjid.namaKetua)+r("WA Ketua",masjid.waKetua!=="Tidak diizinkan"?masjid.waKetua:"")+r("Sekretaris",masjid.namaSekretaris)+r("Muadzin",masjid.muadzin)+r("Marbot",masjid.marbot)+r("Pengurus Lain",masjid.pengurusLain))}
-      ${s("DATA JAMAAH",r("Total Jamaah",masjid.jamaahTotal?masjid.jamaahTotal+" orang":"")+r("Jamaah Jumat",masjid.jamaahJumat?"±"+masjid.jamaahJumat+" orang":"")+r("Maghrib/Isya",masjid.jamaahMaghrib?"±"+masjid.jamaahMaghrib+" orang":"")+r("Subuh",masjid.jamaahSubuh?"±"+masjid.jamaahSubuh+" orang":"")+r("Majelis Taklim",masjid.majelisTaklim)+r("Remaja Masjid",masjid.remasjid))}
-      ${s("STATUS TANAH & WAKAF",r("Status Tanah",masjid.statusTanah)+r("Nomor Sertifikat",masjid.nomorSertif)+r("Tanggal Sertifikat",masjid.tglSertif)+r("Akta Ikrar Wakaf",masjid.aktaWakaf)+r("Nama Wakif",masjid.namaWakif)+r("Nama Nadzir",masjid.namaNadzir)+r("Wakaf Produktif",masjid.wakafProduktif))}
-      ${s("FASILITAS & KONDISI",r("Kondisi Bangunan",masjid.kondisiBgn)+r("Kalibrasi Kiblat",masjid.kiblat)+r("Aula",masjid.aula)+r("Perpustakaan",masjid.perpustakaan)+r("TPQ",masjid.tpqAnak)+r("Program Ramah",masjid.programRamah)+r("Rekening",masjid.rekening)+r("WA Bantuan",masjid.waBantuan))}
-      ${s("SURVEYOR",r("Nama Surveyor",masjid.namaSurveyor)+r("Tanggal Survei",masjid.tglSurvei))}
-      <div style="margin-top:24px;padding-top:14px;border-top:2px solid #e2d9c8;font-size:10px;color:#9ca3af;text-align:center;line-height:1.8;">
-        Direktori Masjid & Musholla · Kecamatan Pilangkenceng, Kabupaten Madiun<br/>
-        Kerjasama: KUA Kec. Pilangkenceng · BKM · PW DMI · APRI & IPARI · Kanwil Kemenag Jatim
-      </div>
-    </div>`;
-  const pa=document.getElementById("print-area");
-  pa.innerHTML=html;pa.style.display="block";
-  window.print();
-  setTimeout(()=>{pa.style.display="none";pa.innerHTML="";},1500);
-}
+            {/* ── 1. Identitas & Lokasi ─────────────────── */}
+            <AccordionSeksi icon="🕌" judul="Identitas & Lokasi" defaultOpen>
+              <FR label="Nama"        value={masjid.namaMasjid}/>
+              <FR label="Tipologi"    value={[masjid.lokasiSurvey, masjid.tipologi].filter(Boolean).join(" — ")}/>
+              <FR label="ID SIMAS"    value={masjid.idSimas} mono/>
+              <FR label="Afiliasi"    value={masjid.afiliasi}/>
+              <FR label="Tahun Berdiri" value={masjid.tahunBerdiri}/>
+              <FR label="Alamat"      value={masjid.alamat}/>
+              {(masjid.koordinatBT || masjid.koordinatLS) && (
+                <FR label="Koordinat GPS"
+                  value={[masjid.koordinatLS && "LS: "+masjid.koordinatLS,
+                          masjid.koordinatBT && "BT: "+masjid.koordinatBT].filter(Boolean).join("  |  ")}
+                  mono/>
+              )}
+              {koordinatLink && (
+                <div style={{ marginTop:4, marginBottom:8 }}>
+                  <a href={koordinatLink} target="_blank" rel="noreferrer"
+                    style={{ fontSize:12, color:"#1B4332", fontWeight:500,
+                      textDecoration:"none", padding:"4px 10px",
+                      background:"#e8f5e9", borderRadius:20, display:"inline-block" }}>
+                    🗺️ Buka di Google Maps
+                  </a>
+                </div>
+              )}
+              <FR label="Email"       value={masjid.email}/>
+              <FR label="Media Sosial" value={masjid.medsos}/>
+            </AccordionSeksi>
 
-// ── TAB KIBLAT ──
-function TabKiblat(){
-  const KA_LAT=21.4225,KA_LNG=39.8263;
-  const DEF_LAT=-7.6101,DEF_LNG=111.4926;
+            {/* ── 2. Administrasi ───────────────────────── */}
+            <AccordionSeksi icon="📋" judul="Administrasi"
+              badge={masjid.skTakmir && !masjid.skTakmir.includes("Tidak punya") ? "Ada SK" : null}>
+              <FR label="SK Takmir"     value={masjid.skTakmir}/>
+              <FR label="Diketahui oleh" value={masjid.skLevel}/>
+              <FR label="Luas Tanah"    value={masjid.luasTanah    ? masjid.luasTanah    + " m²" : ""}/>
+              <FR label="Luas Bangunan" value={masjid.luasBangunan ? masjid.luasBangunan + " m²" : ""}/>
+              <FR label="Daya Tampung"  value={masjid.dayaTampung  ? masjid.dayaTampung  + " orang" : ""}/>
+            </AccordionSeksi>
 
-  // ── Kalkulator Arah Kiblat ──
-  const[kLat,setKLat]=useState(DEF_LAT.toString());
-  const[kLng,setKLng]=useState(DEF_LNG.toString());
-  const[kResult,setKResult]=useState(null);
+            {/* ── 3. Pengurus & Petugas ─────────────────── */}
+            {/* 🔒 waKetua, waSekretaris, waKetuaRemaja tidak ditampilkan */}
+            <AccordionSeksi icon="👥" judul="Pengurus & Petugas">
+              <FR label="Ketua Takmir"  value={masjid.namaKetua}/>
+              <FR label="Sekretaris"    value={masjid.namaSekretaris}/>
+              <FR label="Pengurus Lain" value={masjid.pengurusLain} full/>
+              {masjid.jumlahImam && (
+                <FR label={`Imam (${masjid.jumlahImam})`} value={masjid.namaImamGabung} full/>
+              )}
+              {masjid.jumlahMuadzin && (
+                <FR label={`Muadzin (${masjid.jumlahMuadzin})`} value={masjid.namaMuadzinGabung} full/>
+              )}
+              {masjid.jumlahKhotib && (
+                <FR label={`Khotib (${masjid.jumlahKhotib})`} value={masjid.namaKhotibGabung} full/>
+              )}
+              {masjid.jumlahMarbot && (
+                <FR label={`Marbot (${masjid.jumlahMarbot})`} value={masjid.namaMarbotGabung} full/>
+              )}
+            </AccordionSeksi>
 
-  const hitungKiblat=()=>{
-    const lat=parseFloat(kLat),lng=parseFloat(kLng);
-    if(isNaN(lat)||isNaN(lng))return;
-    const dLng=(KA_LNG-lng)*Math.PI/180;
-    const latR=lat*Math.PI/180,kaLatR=KA_LAT*Math.PI/180;
-    const y=Math.sin(dLng)*Math.cos(kaLatR);
-    const x=Math.cos(latR)*Math.sin(kaLatR)-Math.sin(latR)*Math.cos(kaLatR)*Math.cos(dLng);
-    let az=Math.atan2(y,x)*180/Math.PI;
-    az=(az+360)%360;
-    const arahMata=az<=22.5?"Utara":az<=67.5?"Timur Laut":az<=112.5?"Timur":az<=157.5?"Tenggara":az<=202.5?"Selatan":az<=247.5?"Barat Daya":az<=292.5?"Barat":"Barat Laut";
-    setKResult({az:az.toFixed(2),arah:arahMata});
-  };
+            {/* ── 4. Data Jamaah & Ibadah ───────────────── */}
+            <AccordionSeksi icon="📊" judul="Data Jamaah & Ibadah">
+              {masjid.jamaahTotal && (
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)",
+                  gap:8, marginBottom:14 }}>
+                  {[
+                    { label:"Total Jamaah",   val: masjid.jamaahTotal + " org" },
+                    { label:"Jamaah Jumat",   val: masjid.jamaahJumat   ? "±"+masjid.jamaahJumat   +" org" : "—" },
+                    { label:"Maghrib / Isya", val: masjid.jamaahMaghrib ? "±"+masjid.jamaahMaghrib +" org" : "—" },
+                    { label:"Dhuhur / Ashar", val: masjid.jamaahDhuhur  ? "±"+masjid.jamaahDhuhur  +" org" : "—" },
+                    { label:"Subuh",          val: masjid.jamaahSubuh   ? "±"+masjid.jamaahSubuh   +" org" : "—" },
+                  ].map((s,i) => (
+                    <div key={i} style={{ background:"#f8faf8", borderRadius:8,
+                      padding:"8px 12px", textAlign:"center" }}>
+                      <div style={{ fontSize:10, color:"#9ca3af" }}>{s.label}</div>
+                      <div style={{ fontSize:14, fontWeight:600, color:"#1B4332", marginTop:2 }}>{s.val}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Remaja Masjid */}
+              {adaRemaja && (
+                <div style={{ marginTop:6, padding:"10px 12px", background:"#f8faf8",
+                  borderRadius:8, marginBottom:8 }}>
+                  <div style={{ fontSize:11, fontWeight:600, color:"#1B4332", marginBottom:6 }}>
+                    🌙 Remaja Masjid
+                  </div>
+                  <FR label="Jumlah Anggota" value={masjid.jumlahRemaja ? masjid.jumlahRemaja+" orang" : ""}/>
+                  <FR label="Ketua"          value={masjid.namaKetuaRemaja}/>
+                  <FR label="Pengurus Lain"  value={masjid.pengurusRemajaLain} full/>
+                </div>
+              )}
+              {/* Majelis Taklim 1 */}
+              {adaMajelis && (
+                <div style={{ marginTop:6, padding:"10px 12px", background:"#f8faf8",
+                  borderRadius:8, marginBottom:8 }}>
+                  <div style={{ fontSize:11, fontWeight:600, color:"#1B4332", marginBottom:6 }}>
+                    📚 Majelis Taklim
+                  </div>
+                  <FR label="Nama Majelis" value={masjid.namaMajelis}/>
+                  <FR label="Pengasuh"     value={masjid.namaPengasuh}/>
+                  <FR label="Kitab Dikaji" value={masjid.kitabDikaji}/>
+                  <FR label="Jamaah Rutin" value={masjid.jamaahRutin ? masjid.jamaahRutin+" orang" : ""}/>
+                </div>
+              )}
+              {/* Majelis Taklim 2 */}
+              {adaMajelis2 && (
+                <div style={{ marginTop:6, padding:"10px 12px", background:"#f8faf8",
+                  borderRadius:8, marginBottom:8 }}>
+                  <div style={{ fontSize:11, fontWeight:600, color:"#1B4332", marginBottom:6 }}>
+                    📚 Majelis Taklim ke-2
+                  </div>
+                  <FR label="Nama Majelis" value={masjid.namaMajelis2}/>
+                  <FR label="Pengasuh"     value={masjid.namaPengasuh2}/>
+                  <FR label="Kitab Dikaji" value={masjid.kitabDikaji2}/>
+                  <FR label="Jamaah Rutin" value={masjid.jamaahRutin2 ? masjid.jamaahRutin2+" orang" : ""}/>
+                </div>
+              )}
+            </AccordionSeksi>
 
-  // ── Kalkulator Rashdul Kiblat ──
-  const[rTgl,setRTgl]=useState(()=>new Date().toISOString().slice(0,10));
-  const[rLng,setRLng]=useState(DEF_LNG.toString());
-  const[rResult,setRResult]=useState(null);
+            {/* ── 5. Status Tanah & Wakaf ───────────────── */}
+            <AccordionSeksi icon="🏠" judul="Status Tanah & Wakaf"
+              badge={wakafBersertif ? "✅ Bersertifikat" : null}>
+              <FR label="Status Tanah"    value={masjid.statusTanah}/>
+              <FR label="No. Sertifikat"  value={masjid.nomorSertifWakaf} mono/>
+              <FR label="Tgl. Sertifikat" value={masjid.tglSertifWakaf}/>
+              <FR label="No. AIW"         value={masjid.nomorAIW} mono/>
+              <FR label="Tgl. AIW"        value={masjid.tglAIW}/>
+              <FR label="Nama Wakif"      value={masjid.namaWakif}/>
+              <FR label="Nama Nadzir"     value={masjid.namaNadzir}/>
+              <FR label="Wakaf Produktif" value={masjid.wakafProduktif}/>
+              <FR label="Usaha Produktif" value={masjid.usahaProduktif} full/>
+            </AccordionSeksi>
 
-  const getDeklinasi=(doy)=>23.45*Math.sin((360/365*(doy-81))*Math.PI/180);
-  const getEOT=(doy)=>{
-    const B=(360/365*(doy-81))*Math.PI/180;
-    return 9.87*Math.sin(2*B)-7.53*Math.cos(B)-1.5*Math.sin(B);
-  };
-  const getDOY=(dateStr)=>{
-    const d=new Date(dateStr),s=new Date(d.getFullYear(),0,0);
-    return Math.floor((d-s)/86400000);
-  };
+            {/* ── 6. Fasilitas & Kegiatan ───────────────── */}
+            <AccordionSeksi icon="🏗️" judul="Fasilitas & Kegiatan">
+              <div style={{ marginBottom:10 }}>
+                <KondisiBadge kondisi={masjid.kondisiBgn}/>
+              </div>
+              <FR label="Kalibrasi Kiblat"  value={masjid.kiblat}/>
+              <FR label="No. Sertif Kiblat" value={masjid.nomorSertifKiblat} mono/>
+              <FR label="Aula / R. Rapat"   value={masjid.aula}/>
+              <FR label="Perpustakaan"      value={masjid.perpustakaan}/>
+              {masjid.perpustakaan?.toLowerCase().startsWith("ada") && (
+                <>
+                  <FR label="Jumlah Buku" value={masjid.jumlahBuku ? masjid.jumlahBuku+" buku" : ""}/>
+                  <FR label="Kondisi Buku" value={masjid.kondisiBuku}/>
+                </>
+              )}
+              <FR label="TPQ Anak-Remaja" value={masjid.tpqAnak}/>
+              {masjid.tpqAnak?.toLowerCase().startsWith("ada") && (
+                <FR label="Metode TPQ" value={masjid.metodeTPQAnak}/>
+              )}
+              <FR label="TPQ Dewasa"      value={masjid.tpqDewasa}/>
+              {masjid.tpqDewasa?.toLowerCase().startsWith("ada") && (
+                <FR label="Metode TPQ Dewasa" value={masjid.metodeTPQDewasa}/>
+              )}
+              <FR label="Program Sosial"  value={masjid.programSosial} full/>
+              <FR label="Rekening Bantuan" value={masjid.rekening} mono/>
+              <FR label="WA Bantuan"       value={masjid.waBantuan}/>
+            </AccordionSeksi>
 
-  const hitungRashdul=()=>{
-    const lng=parseFloat(rLng);
-    if(isNaN(lng)||!rTgl)return;
-    const doy=getDOY(rTgl);
-    const dekl=getDeklinasi(doy);
-    const eot=getEOT(doy);
-    const bisaRashdul=Math.abs(dekl)<=KA_LAT+0.5;
-    if(!bisaRashdul){setRResult({error:true,dekl:dekl.toFixed(2)});return;}
-    const selisihBujur=(lng-KA_LNG)/15;
-    const totalMenit=720-eot+selisihBujur*60;
-    const jamWIB=totalMenit/60;
-    const jam=Math.floor(jamWIB);
-    const menit=Math.floor((jamWIB-jam)*60);
-    const detik=Math.round(((jamWIB-jam)*60-menit)*60);
-    const pad=n=>String(n).padStart(2,"0");
-    const waktu=`${pad(jam)}:${pad(menit)}:${pad(detik)} WIB`;
-    const tanggalObj=new Date(rTgl);
-    const tglStr=tanggalObj.toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-    setRResult({waktu,tglStr,dekl:dekl.toFixed(2),eot:eot.toFixed(2),error:false});
-  };
+            {/* ── 7. Foto Dokumentasi ───────────────────── */}
+            <AccordionSeksi icon="📷" judul="Foto Dokumentasi"
+              badge={masjid.jumlahFoto ? masjid.jumlahFoto+" foto" : null}>
+              <FotoGaleri label="Foto Depan"          urlString={masjid.urlFotoDepan}    icon="🏛️"/>
+              <FotoGaleri label="Foto Dalam"          urlString={masjid.urlFotoDalam}    icon="🕌"/>
+              <FotoGaleri label="Foto Wudhu"          urlString={masjid.urlFotoWudhu}    icon="💧"/>
+              <FotoGaleri label="Foto WC"             urlString={masjid.urlFotoWC}       icon="🚿"/>
+              <FotoGaleri label="Foto Lainnya"        urlString={masjid.urlFotoLain}     icon="📸"/>
+              <FotoGaleri label="Sertifikat Wakaf"    urlString={masjid.urlFotoSertifWakaf} icon="📄"/>
+              <FotoGaleri label="Akta Ikrar Wakaf"    urlString={masjid.urlFotoAIW}      icon="📜"/>
+              <FotoGaleri label="Sertif. Kiblat"      urlString={masjid.urlFotoKiblat}   icon="🧭"/>
+              <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginTop:8 }}>
+                {masjid.folderUrl && (
+                  <a href={masjid.folderUrl} target="_blank" rel="noreferrer"
+                    style={{ display:"inline-flex", alignItems:"center", gap:6,
+                      fontSize:12, color:"#1B4332", fontWeight:500, textDecoration:"none",
+                      padding:"6px 12px", background:"#e8f5e9", borderRadius:20 }}>
+                    📁 Semua Foto di Drive
+                  </a>
+                )}
+                {masjid.pdfUrl && (
+                  <a href={masjid.pdfUrl} target="_blank" rel="noreferrer"
+                    style={{ display:"inline-flex", alignItems:"center", gap:6,
+                      fontSize:12, color:"#7c3aed", fontWeight:500, textDecoration:"none",
+                      padding:"6px 12px", background:"#f5f3ff", borderRadius:20 }}>
+                    📑 Unduh PDF
+                  </a>
+                )}
+              </div>
+              <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid #e2d9c8" }}>
+                <FR label="Surveyor"   value={masjid.namaSurveyor}/>
+              </div>
+            </AccordionSeksi>
 
-  const inputStyle={
-    width:"100%",padding:"10px 14px",borderRadius:10,
-    border:"1px solid #e2d9c8",fontSize:14,background:"white",
-    fontFamily:"'DM Sans',sans-serif",outline:"none",color:"#1a1a1a",
-    boxSizing:"border-box"
-  };
-  const labelStyle={fontSize:12,color:"#9ca3af",marginBottom:4,display:"block",fontWeight:500};
-  const cardStyle={background:"white",borderRadius:16,border:"1px solid #e2d9c8",
-    boxShadow:"0 2px 12px rgba(0,0,0,.06)",overflow:"hidden",marginBottom:20};
-  const cardHeader={background:"#1B4332",padding:"16px 20px",display:"flex",alignItems:"center",gap:12};
-  const btnStyle={
-    width:"100%",padding:"11px",borderRadius:10,border:"none",
-    background:"#1B4332",color:"white",fontSize:14,fontWeight:600,
-    cursor:"pointer",fontFamily:"'DM Sans',sans-serif",marginTop:4,letterSpacing:".3px"
-  };
-  const resultBox={
-    background:"linear-gradient(135deg,#1B4332 0%,#2d6a4f 100%)",
-    borderRadius:14,padding:"20px 24px",marginTop:16,color:"white",
-    border:"1px solid rgba(212,168,83,.3)"
-  };
-
-  // Compass SVG
-  const CompassSVG=({az})=>{
-    const r=az*Math.PI/180;
-    const cx=60,cy=60,R=50;
-    const nx=cx+R*Math.sin(r),ny=cy-R*Math.cos(r);
-    const tx=cx-18*Math.sin(r),ty=cy+18*Math.cos(r);
-    return<svg width="120" height="120" viewBox="0 0 120 120" style={{flexShrink:0}}>
-      <circle cx={cx} cy={cy} r={R} fill="rgba(255,255,255,.08)" stroke="rgba(212,168,83,.4)" strokeWidth="1"/>
-      {["U","T","S","B"].map((d,i)=>{
-        const a=i*Math.PI/2;
-        return<text key={d} x={cx+44*Math.sin(a)} y={cy-44*Math.cos(a)+4}
-          textAnchor="middle" fill="rgba(255,255,255,.6)" fontSize="9" fontFamily="DM Sans">{d}</text>;
-      })}
-      <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#D4A853" strokeWidth="3" strokeLinecap="round"/>
-      <line x1={cx} y1={cy} x2={tx} y2={ty} stroke="rgba(255,255,255,.3)" strokeWidth="2" strokeLinecap="round"/>
-      <circle cx={cx} cy={cy} r={5} fill="#D4A853"/>
-    </svg>;
-  };
-
-  // Tanggal-tanggal rashdul kiblat tahunan
-  const tahun=rTgl?new Date(rTgl).getFullYear():new Date().getFullYear();
-  const rashdulDates=[`${tahun}-05-27`,`${tahun}-05-28`,`${tahun}-07-15`,`${tahun}-07-16`];
-
-  return<div style={{animation:"fadeIn .3s ease",maxWidth:800,margin:"0 auto"}}>
-    <div style={{textAlign:"center",marginBottom:28,paddingTop:8}}>
-      <div style={{fontFamily:"'Playfair Display',serif",fontSize:24,fontWeight:700,color:"#1B4332",marginBottom:6}}>
-        🧭 Kalkulator Kiblat & Rashdul
-      </div>
-      <div style={{fontSize:13,color:"#9ca3af"}}>
-        Hitung arah kiblat dan waktu rashdul kiblat untuk lokasi mana pun
-      </div>
-    </div>
-
-    {/* ── KALKULATOR ARAH KIBLAT ── */}
-    <div style={cardStyle}>
-      <div style={cardHeader}>
-        <div style={{width:36,height:36,borderRadius:10,background:"rgba(212,168,83,.2)",
-          display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🕋</div>
-        <div>
-          <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:"white"}}>Arah Kiblat</div>
-          <div style={{fontSize:11,color:"rgba(212,168,83,.8)"}}>Berdasarkan koordinat lokasi pengamat</div>
-        </div>
-      </div>
-      <div style={{padding:"20px 24px"}}>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
-          <div>
-            <label style={labelStyle}>Lintang (Latitude)</label>
-            <input style={inputStyle} type="number" step="0.0001" value={kLat}
-              onChange={e=>setKLat(e.target.value)} placeholder="-7.6101"/>
-            <div style={{fontSize:11,color:"#9ca3af",marginTop:3}}>Negatif = Selatan. Pilangkenceng ≈ -7.6101</div>
-          </div>
-          <div>
-            <label style={labelStyle}>Bujur (Longitude)</label>
-            <input style={inputStyle} type="number" step="0.0001" value={kLng}
-              onChange={e=>setKLng(e.target.value)} placeholder="111.4926"/>
-            <div style={{fontSize:11,color:"#9ca3af",marginTop:3}}>Positif = Timur. Pilangkenceng ≈ 111.4926</div>
           </div>
         </div>
-        <div style={{background:"#f8f4ed",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#6b7280",marginBottom:16}}>
-          📍 <strong>Ka'bah:</strong> 21°25'20" LU, 39°49'34" BT (konstan)
-        </div>
-        <button style={btnStyle} onClick={hitungKiblat}>Hitung Arah Kiblat →</button>
-        {kResult&&<div style={resultBox}>
-          <div style={{display:"flex",alignItems:"center",gap:20}}>
-            <CompassSVG az={parseFloat(kResult.az)}/>
-            <div>
-              <div style={{fontSize:12,color:"rgba(212,168,83,.8)",marginBottom:4}}>Arah Kiblat dari Utara (searah jarum jam)</div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:40,fontWeight:700,color:"#D4A853",lineHeight:1}}>
-                {kResult.az}°
+      );
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  KOMPONEN: KARTU MASJID
+    // ════════════════════════════════════════════════════════════
+    function KartuMasjid({ masjid, onClick }) {
+      const [hover, setHover] = useState(false);
+      const isMusholla = masjid.lokasiSurvey?.toUpperCase().includes("MUSHOLLA");
+      return (
+        <div onClick={() => onClick(masjid)}
+          onMouseEnter={() => setHover(true)}
+          onMouseLeave={() => setHover(false)}
+          style={{
+            background:"white", borderRadius:14, overflow:"hidden",
+            cursor:"pointer", border:"1px solid #e8e0d0",
+            boxShadow: hover ? "0 10px 32px rgba(27,67,50,.15)" : "0 2px 12px rgba(0,0,0,.06)",
+            transform: hover ? "translateY(-4px)" : "translateY(0)",
+            transition:"all .22s ease",
+            fontFamily:"'DM Sans',sans-serif",
+          }}>
+          {/* Foto */}
+          <div style={{ position:"relative", height:176,
+            background:"#e8e0d0", overflow:"hidden" }}>
+            {masjid.fotoUtama ? (
+              <img src={masjid.fotoUtama} alt={masjid.namaMasjid}
+                style={{ width:"100%", height:"100%", objectFit:"cover",
+                  transform: hover ? "scale(1.05)" : "scale(1)",
+                  transition:"transform .4s ease" }}
+                onError={e => { e.target.style.display="none"; }}
+              />
+            ) : (
+              <div style={{ width:"100%", height:"100%", display:"flex",
+                alignItems:"center", justifyContent:"center",
+                fontSize:52, opacity:.25 }}>🕌</div>
+            )}
+            <div style={{ position:"absolute", inset:0,
+              background:"linear-gradient(to top,rgba(27,67,50,.5) 0%,transparent 60%)" }}/>
+            <div style={{ position:"absolute", top:10, left:10,
+              background:"rgba(27,67,50,.85)", backdropFilter:"blur(4px)",
+              borderRadius:20, padding:"3px 10px",
+              fontSize:10, fontWeight:700, color:"#D4A853", letterSpacing:".5px" }}>
+              {isMusholla ? "MUSHOLLA" : "MASJID"}
+            </div>
+            <div style={{ position:"absolute", top:10, right:10 }}>
+              <KondisiBadge kondisi={masjid.kondisiBgn}/>
+            </div>
+            {masjid.jumlahFoto && Number(masjid.jumlahFoto) > 0 && (
+              <div style={{ position:"absolute", bottom:8, right:10,
+                fontSize:11, color:"rgba(255,255,255,.85)",
+                display:"flex", alignItems:"center", gap:3 }}>
+                📷 {masjid.jumlahFoto}
               </div>
-              <div style={{fontSize:16,fontWeight:600,marginTop:6}}>{kResult.arah}</div>
-              <div style={{fontSize:12,color:"rgba(255,255,255,.6)",marginTop:8}}>
-                Arahkan bayangan tongkat/benda ke arah berlawanan saat rashdul kiblat
+            )}
+          </div>
+          {/* Info */}
+          <div style={{ padding:"12px 14px" }}>
+            <div style={{ fontFamily:"'Playfair Display',serif", fontSize:15,
+              fontWeight:700, color:"#1B4332", lineHeight:1.3, marginBottom:3 }}>
+              {masjid.namaMasjid}
+            </div>
+            <div style={{ fontSize:11, color:"#9ca3af", marginBottom:9,
+              display:"flex", alignItems:"center", gap:4 }}>
+              📍 {masjid.desa} · {masjid.tahunBerdiri || "—"}
+            </div>
+            <div style={{ display:"flex", gap:5, flexWrap:"wrap", marginBottom:10 }}>
+              {masjid.afiliasi?.includes("NU") && (
+                <span style={{ fontSize:10, padding:"2px 7px", borderRadius:20,
+                  background:"#ecfdf5", color:"#047857", fontWeight:600 }}>NU</span>
+              )}
+              {masjid.afiliasi?.includes("Muhammadiyah") && (
+                <span style={{ fontSize:10, padding:"2px 7px", borderRadius:20,
+                  background:"#eff6ff", color:"#1d4ed8", fontWeight:600 }}>Muhammadiyah</span>
+              )}
+              {(masjid.statusTanah?.includes("Bersertifikat") || masjid.nomorSertifWakaf) && (
+                <span style={{ fontSize:10, padding:"2px 7px", borderRadius:20,
+                  background:"#f0fdf4", color:"#166534", fontWeight:600 }}>Wakaf ✓</span>
+              )}
+              {masjid.tpqAnak?.toLowerCase().startsWith("ada") && (
+                <span style={{ fontSize:10, padding:"2px 7px", borderRadius:20,
+                  background:"#fdf4ff", color:"#7e22ce", fontWeight:600 }}>TPQ</span>
+              )}
+              {masjid.kondisiBgn?.includes("Rusak") && (
+                <span style={{ fontSize:10, padding:"2px 7px", borderRadius:20,
+                  background:"#fff7ed", color:"#c2410c", fontWeight:600 }}>⚠️ Perlu Perhatian</span>
+              )}
+            </div>
+            <div style={{ display:"flex", justifyContent:"space-between",
+              alignItems:"center", paddingTop:8, borderTop:"1px solid #f3f4f6" }}>
+              <div style={{ fontSize:11, color:"#9ca3af" }}>
+                👥 Jumat: {masjid.jamaahJumat ? "±"+masjid.jamaahJumat : "—"}
               </div>
+              <span style={{ fontSize:11, color:"#1B4332", fontWeight:600 }}>Detail →</span>
             </div>
           </div>
-        </div>}
-      </div>
-    </div>
+        </div>
+      );
+    }
 
-    {/* ── KALKULATOR RASHDUL KIBLAT ── */}
-    <div style={cardStyle}>
-      <div style={cardHeader}>
-        <div style={{width:36,height:36,borderRadius:10,background:"rgba(212,168,83,.2)",
-          display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>☀️</div>
-        <div>
-          <div style={{fontFamily:"'Playfair Display',serif",fontSize:16,fontWeight:700,color:"white"}}>Rashdul Kiblat</div>
-          <div style={{fontSize:11,color:"rgba(212,168,83,.8)"}}>Waktu matahari tepat di atas Ka'bah</div>
-        </div>
-      </div>
-      <div style={{padding:"20px 24px"}}>
-        <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:10,padding:"12px 14px",
-          fontSize:12,color:"#92400e",marginBottom:16,lineHeight:1.6}}>
-          ℹ️ Rashdul kiblat terjadi dua kali setahun: sekitar <strong>27–28 Mei</strong> dan <strong>15–16 Juli</strong>,
-          saat deklinasi matahari ≈ lintang Ka'bah (21,42°). Bayangan benda tegak akan menunjuk tepat ke arah kiblat.
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
-          <div>
-            <label style={labelStyle}>Tanggal</label>
-            <input style={inputStyle} type="date" value={rTgl} onChange={e=>setRTgl(e.target.value)}/>
-          </div>
-          <div>
-            <label style={labelStyle}>Bujur Lokasi (Longitude)</label>
-            <input style={inputStyle} type="number" step="0.0001" value={rLng}
-              onChange={e=>setRLng(e.target.value)} placeholder="111.4926"/>
-            <div style={{fontSize:11,color:"#9ca3af",marginTop:3}}>Pilangkenceng ≈ 111.4926</div>
-          </div>
-        </div>
-        <div style={{marginBottom:16}}>
-          <div style={{fontSize:12,color:"#9ca3af",marginBottom:8,fontWeight:500}}>⚡ Pilih tanggal rashdul tahun {tahun}:</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-            {rashdulDates.map(d=>{
-              const obj=new Date(d);
-              const lbl=obj.toLocaleDateString("id-ID",{day:"numeric",month:"short"});
-              return<button key={d} onClick={()=>setRTgl(d)} style={{
-                padding:"6px 14px",borderRadius:20,fontSize:12,fontWeight:600,cursor:"pointer",
-                border:"1px solid #D4A853",background:rTgl===d?"#D4A853":"white",
-                color:rTgl===d?"#1B4332":"#92400e",fontFamily:"'DM Sans',sans-serif",transition:"all .2s"
-              }}>{lbl}</button>;
-            })}
-          </div>
-        </div>
-        <button style={btnStyle} onClick={hitungRashdul}>Hitung Waktu Rashdul →</button>
-        {rResult&&(rResult.error
-          ?<div style={{...resultBox,background:"linear-gradient(135deg,#7f1d1d,#991b1b)"}}>
-            <div style={{fontSize:14,fontWeight:600,marginBottom:4}}>⚠️ Rashdul Kiblat tidak terjadi pada tanggal ini</div>
-            <div style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>
-              Deklinasi matahari = {rResult.dekl}° (jauh dari lintang Ka'bah 21,42°).
-              Pilih tanggal sekitar 27–28 Mei atau 15–16 Juli.
-            </div>
-          </div>
-          :<div style={resultBox}>
-            <div style={{marginBottom:12,paddingBottom:12,borderBottom:"1px solid rgba(255,255,255,.15)"}}>
-              <div style={{fontSize:11,color:"rgba(212,168,83,.8)",marginBottom:2}}>Waktu Rashdul Kiblat</div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:36,fontWeight:700,color:"#D4A853",lineHeight:1}}>
-                {rResult.waktu}
-              </div>
-              <div style={{fontSize:13,color:"rgba(255,255,255,.75)",marginTop:4}}>{rResult.tglStr}</div>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,fontSize:12}}>
-              <div style={{background:"rgba(255,255,255,.08)",borderRadius:8,padding:"10px 12px"}}>
-                <div style={{color:"rgba(212,168,83,.8)",marginBottom:2}}>Deklinasi Matahari</div>
-                <div style={{fontWeight:700,fontSize:14}}>{rResult.dekl}°</div>
-              </div>
-              <div style={{background:"rgba(255,255,255,.08)",borderRadius:8,padding:"10px 12px"}}>
-                <div style={{color:"rgba(212,168,83,.8)",marginBottom:2}}>Equation of Time</div>
-                <div style={{fontWeight:700,fontSize:14}}>{rResult.eot} menit</div>
-              </div>
-              <div style={{background:"rgba(255,255,255,.08)",borderRadius:8,padding:"10px 12px"}}>
-                <div style={{color:"rgba(212,168,83,.8)",marginBottom:2}}>Zona Waktu</div>
-                <div style={{fontWeight:700,fontSize:14}}>WIB (UTC+7)</div>
+    // ════════════════════════════════════════════════════════════
+    //  KOMPONEN: SKELETON LOADING
+    // ════════════════════════════════════════════════════════════
+    function Skeleton() {
+      return (
+        <div style={{ display:"grid",
+          gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:18 }}>
+          {[1,2,3,4,5,6].map(i => (
+            <div key={i} style={{ background:"white", borderRadius:14,
+              overflow:"hidden", border:"1px solid #e8e0d0" }}>
+              <div style={{ height:176,
+                background:"linear-gradient(90deg,#f0ebe0 25%,#e8e0d0 50%,#f0ebe0 75%)",
+                backgroundSize:"200% 100%", animation:"shimmer 1.5s infinite" }}/>
+              <div style={{ padding:"12px 14px" }}>
+                {[80,60,90].map((w,j) => (
+                  <div key={j} style={{ height:12, background:"#f0ebe0",
+                    borderRadius:6, marginBottom:8, width:w+"%" }}/>
+                ))}
               </div>
             </div>
-            <div style={{marginTop:12,padding:"10px 12px",background:"rgba(212,168,83,.12)",
-              borderRadius:8,fontSize:12,color:"rgba(255,255,255,.8)",lineHeight:1.5}}>
-              💡 Pada pukul tersebut, dirikan tongkat/benda tegak di tempat terbuka. Bayangan yang terbentuk menunjuk
-              tepat ke arah <strong style={{color:"#D4A853"}}>kiblat (timur)</strong> dari benda tersebut.
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-
-    <div style={{background:"white",borderRadius:14,border:"1px solid #e2d9c8",padding:"16px 20px",
-      fontSize:12,color:"#6b7280",lineHeight:1.7}}>
-      <strong style={{color:"#1B4332"}}>📐 Metode Perhitungan:</strong> Arah kiblat menggunakan formula
-      Spherical Trigonometry (Trigonometri Bola). Rashdul kiblat dihitung menggunakan deklinasi matahari
-      dan Equation of Time (koreksi waktu surya). Koordinat Ka'bah: 21°25'21" LU, 39°49'35" BT.
-    </div>
-  </div>;
-}
-
-// ── APP ──
-function App(){
-  const{data,loading,error,lastSync,refetch}=useSheetData();
-  const[tab,setTab]=useState("album");
-  const[selected,setSelected]=useState(null);
-
-  return<div style={{minHeight:"100vh",background:"var(--krem)"}}>
-    <header style={{background:"#1B4332",position:"sticky",top:0,zIndex:500,boxShadow:"0 2px 20px rgba(27,67,50,.4)"}}>
-      <div style={{height:3,background:"repeating-linear-gradient(90deg,#D4A853 0,#D4A853 8px,transparent 8px,transparent 16px,#D4A853 16px,#D4A853 22px,transparent 22px,transparent 30px)"}}/>
-      <div style={{maxWidth:1120,margin:"0 auto",padding:"10px 20px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,flex:1,minWidth:160}}>
-          <div style={{width:38,height:38,borderRadius:10,background:"rgba(212,168,83,.2)",border:"1px solid rgba(212,168,83,.35)",
-            display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🕌</div>
-          <div>
-            <div style={{fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,color:"white",lineHeight:1.1}}>Album Masjid</div>
-            <div style={{fontSize:10,color:"rgba(212,168,83,.8)",letterSpacing:".5px"}}>KEC. PILANGKENCENG · KAB. MADIUN</div>
-          </div>
-        </div>
-        <div style={{display:"flex",gap:4,background:"rgba(255,255,255,.1)",borderRadius:24,padding:4}}>
-          {[{id:"album",icon:"🗂️",label:"Album"},{id:"peta",icon:"🗺️",label:"Peta"},{id:"statistik",icon:"📊",label:"Statistik"},{id:"kiblat",icon:"🧭",label:"Kiblat"}].map(t=>(
-            <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"6px 16px",borderRadius:20,border:"none",
-              cursor:"pointer",fontSize:12,fontWeight:600,transition:"all .2s",
-              background:tab===t.id?"#D4A853":"transparent",color:tab===t.id?"#1B4332":"rgba(255,255,255,.8)"}}>
-              {t.icon} {t.label}
-            </button>
           ))}
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          {lastSync&&!loading&&<span style={{fontSize:11,color:"rgba(255,255,255,.5)"}}>
-            🔄 {lastSync.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})}
-          </span>}
-          <button onClick={refetch} disabled={loading} style={{padding:"6px 12px",borderRadius:24,
-            border:"1px solid rgba(255,255,255,.2)",background:"rgba(255,255,255,.08)",
-            color:"rgba(255,255,255,.8)",cursor:loading?"not-allowed":"pointer",fontSize:12}}>
-            {loading?"⏳":"🔄"} Sinkron
-          </button>
-        </div>
-      </div>
-    </header>
-    <main style={{maxWidth:1120,margin:"0 auto",padding:"20px"}}>
-      {tab==="album"&&<TabAlbum data={data} loading={loading} error={error} onSelect={setSelected}/>}
-      {tab==="peta"&&<TabPeta data={data} onSelect={m=>{setSelected(m);}}/>}
-      {tab==="statistik"&&<TabStatistik data={data}/>}
-      {tab==="kiblat"&&<TabKiblat/>}
-      <div style={{marginTop:40,paddingTop:16,borderTop:"1px solid #e8e0d0",textAlign:"center",fontSize:11,color:"#9ca3af",lineHeight:1.8}}>
-        Direktori Masjid & Musholla · Kecamatan Pilangkenceng, Kabupaten Madiun<br/>
-        Kerjasama: KUA Kec. Pilangkenceng · BKM · PW DMI · APRI & IPARI · Kanwil Kemenag Jatim
-      </div>
-    </main>
-    {selected&&<ModalDetail masjid={selected} onClose={()=>setSelected(null)}
-      onCetak={m=>{setSelected(null);setTimeout(()=>cetakProfil(m),300);}}/>}
-  </div>;
-}
+      );
+    }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-</script>
+    // ════════════════════════════════════════════════════════════
+    //  APP UTAMA
+    // ════════════════════════════════════════════════════════════
+    function AlbumMasjid() {
+      const { data, loading, error, lastSync, refetch } = useSheetData();
+      const [search,        setSearch]        = useState("");
+      const [filterDesa,    setFilterDesa]    = useState("");
+      const [filterKlas,    setFilterKlas]    = useState("");
+      const [filterKondisi, setFilterKondisi] = useState("");
+      const [selected,      setSelected]      = useState(null);
+      const [showFilter,    setShowFilter]    = useState(false);
+
+      const desaList    = useMemo(() =>
+        [...new Set(data.map(m => m.desa).filter(Boolean))].sort(), [data]);
+      const klasList    = useMemo(() =>
+        [...new Set(data.map(m => m.lokasiSurvey).filter(Boolean))].sort(), [data]);
+      const kondisiList = ["Baik","Sedang","Rusak Ringan","Rusak Berat"];
+
+      const filtered = useMemo(() => data.filter(m => {
+        const q = search.toLowerCase();
+        if (q && !m.namaMasjid.toLowerCase().includes(q)
+               && !m.desa.toLowerCase().includes(q)
+               && !m.idSimas.toLowerCase().includes(q)) return false;
+        if (filterDesa    && m.desa         !== filterDesa)    return false;
+        if (filterKlas    && m.lokasiSurvey !== filterKlas)    return false;
+        if (filterKondisi && m.kondisiBgn   !== filterKondisi) return false;
+        // Hanya tampilkan data yang sudah selesai diproses
+        if (m.statusProses && m.statusProses !== "Selesai")    return false;
+        return true;
+      }), [data, search, filterDesa, filterKlas, filterKondisi]);
+
+      const activeFilters = [filterDesa, filterKlas, filterKondisi].filter(Boolean).length;
+      const reset = () => {
+        setSearch(""); setFilterDesa(""); setFilterKlas(""); setFilterKondisi("");
+      };
+      const totalMasjid    = data.filter(m => !m.lokasiSurvey?.toUpperCase().includes("MUSHOLLA")).length;
+      const totalMusholla  = data.filter(m =>  m.lokasiSurvey?.toUpperCase().includes("MUSHOLLA")).length;
+      const perluPerhatian = data.filter(m => m.kondisiBgn?.includes("Rusak")).length;
+
+      return (
+        <div style={{ minHeight:"100vh", background:"#FAFAF7", fontFamily:"'DM Sans',sans-serif" }}>
+
+          {/* ── HEADER ──────────────────────────────────── */}
+          <header style={{ background:"#1B4332", position:"sticky", top:0, zIndex:100,
+            boxShadow:"0 2px 20px rgba(27,67,50,.4)" }}>
+            <div style={{ height:3, background:
+              "repeating-linear-gradient(90deg,#D4A853 0,#D4A853 8px,transparent 8px,transparent 16px,#D4A853 16px,#D4A853 22px,transparent 22px,transparent 30px)" }}/>
+            <div style={{ maxWidth:1120, margin:"0 auto", padding:"12px 20px",
+              display:"flex", alignItems:"center", gap:14, flexWrap:"wrap" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:160 }}>
+                <div style={{ width:38, height:38, borderRadius:10,
+                  background:"rgba(212,168,83,.2)", border:"1px solid rgba(212,168,83,.35)",
+                  display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>🕌</div>
+                <div>
+                  <div style={{ fontFamily:"'Playfair Display',serif", fontSize:15,
+                    fontWeight:700, color:"white", lineHeight:1.1 }}>Album Masjid</div>
+                  <div style={{ fontSize:10, color:"rgba(212,168,83,.8)", letterSpacing:".5px" }}>
+                    KEC. PILANGKENCENG · KAB. MADIUN
+                  </div>
+                </div>
+              </div>
+              <div style={{ position:"relative", flex:1, maxWidth:340 }}>
+                <span style={{ position:"absolute", left:11, top:"50%",
+                  transform:"translateY(-50%)", fontSize:14 }}>🔍</span>
+                <input value={search} onChange={e => setSearch(e.target.value)}
+                  placeholder="Cari nama masjid, desa, atau ID SIMAS..."
+                  style={{ width:"100%", padding:"8px 12px 8px 34px",
+                    borderRadius:24, border:"1px solid rgba(255,255,255,.15)",
+                    background:"rgba(255,255,255,.1)", color:"white",
+                    fontSize:13, outline:"none" }}
+                />
+              </div>
+              <button onClick={() => setShowFilter(!showFilter)} style={{
+                display:"flex", alignItems:"center", gap:6, padding:"7px 14px",
+                borderRadius:24, border:"1px solid rgba(212,168,83,.4)",
+                background: activeFilters > 0 ? "#D4A853" : "rgba(212,168,83,.12)",
+                color: activeFilters > 0 ? "#1B4332" : "#D4A853",
+                cursor:"pointer", fontSize:12, fontWeight:600, transition:"all .2s",
+              }}>
+                ⚙ Filter {activeFilters > 0 && `(${activeFilters})`}
+              </button>
+              <button onClick={refetch} disabled={loading} style={{
+                padding:"7px 12px", borderRadius:24,
+                border:"1px solid rgba(255,255,255,.2)",
+                background:"rgba(255,255,255,.08)", color:"rgba(255,255,255,.8)",
+                cursor: loading ? "not-allowed" : "pointer",
+                fontSize:12, transition:"all .2s",
+              }}>
+                {loading ? "⏳" : "🔄"} Sinkron
+              </button>
+            </div>
+          </header>
+
+          {/* ── FILTER PANEL ─────────────────────────────── */}
+          <div style={{ background:"white", borderBottom:"1px solid #e8e0d0",
+            maxHeight: showFilter ? 160 : 0, overflow:"hidden",
+            transition:"max-height .3s ease" }}>
+            <div style={{ maxWidth:1120, margin:"0 auto", padding:"14px 20px",
+              display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
+              {[
+                { label:"Desa", value:filterDesa, set:setFilterDesa,
+                  opts:[["","Semua Desa"], ...desaList.map(d => [d,d])] },
+                { label:"Klasifikasi", value:filterKlas, set:setFilterKlas,
+                  opts:[["","Masjid & Musholla"], ...klasList.map(k => [k,k])] },
+                { label:"Kondisi", value:filterKondisi, set:setFilterKondisi,
+                  opts:[["","Semua Kondisi"], ...kondisiList.map(k => [k,k])] },
+              ].map(f => (
+                <div key={f.label} style={{ position:"relative" }}>
+                  <span style={{ position:"absolute", right:10, top:"50%",
+                    transform:"translateY(-50%)", fontSize:11,
+                    pointerEvents:"none", color:"#6b7280" }}>▼</span>
+                  <select value={f.value} onChange={e => f.set(e.target.value)} style={{
+                    padding:"7px 28px 7px 12px", borderRadius:8, fontSize:13,
+                    border:"1px solid #e8e0d0", background:"white", color:"#374151",
+                    cursor:"pointer", outline:"none", minWidth:150,
+                  }}>
+                    {f.opts.map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+              ))}
+              {activeFilters > 0 && (
+                <button onClick={reset} style={{ padding:"7px 14px", borderRadius:8,
+                  border:"1px solid #fca5a5", background:"#fef2f2",
+                  color:"#dc2626", fontSize:13, cursor:"pointer", fontWeight:500 }}>
+                  ✕ Reset
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ── MAIN ─────────────────────────────────────── */}
+          <main style={{ maxWidth:1120, margin:"0 auto", padding:"20px" }}>
+            <div style={{ display:"flex", justifyContent:"space-between",
+              alignItems:"center", marginBottom:18, flexWrap:"wrap", gap:10 }}>
+              <div>
+                <div style={{ fontFamily:"'Playfair Display',serif", fontSize:19,
+                  fontWeight:700, color:"#1B4332" }}>
+                  Direktori Masjid & Musholla
+                </div>
+                <div style={{ fontSize:12, color:"#9ca3af", marginTop:2 }}>
+                  {loading ? "Memuat data..." : (
+                    <>Menampilkan <strong style={{ color:"#1B4332" }}>{filtered.length}</strong> dari {data.length} data</>
+                  )}
+                  {lastSync && !loading && (
+                    <span style={{ marginLeft:8, color:"#d1d5db" }}>
+                      · Diperbarui {lastSync.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:12, fontSize:12 }}>
+                <span style={{ color:"#1B4332", fontWeight:500 }}>🕌 {totalMasjid} Masjid</span>
+                <span style={{ color:"#6b7280" }}>🏠 {totalMusholla} Musholla</span>
+                {perluPerhatian > 0 && (
+                  <span style={{ color:"#c2410c", fontWeight:500 }}>⚠️ {perluPerhatian} Perlu Perhatian</span>
+                )}
+              </div>
+            </div>
+
+            {error && (
+              <div style={{ background:"#fef2f2", border:"1px solid #fca5a5",
+                borderRadius:12, padding:"16px 20px", marginBottom:20,
+                color:"#dc2626", fontSize:13 }}>
+                <strong>Gagal memuat data:</strong> {error}
+                <div style={{ marginTop:6, fontSize:12, color:"#9ca3af" }}>
+                  Pastikan SPREADSHEET_ID dan API_KEY sudah benar, dan Google Sheets API sudah diaktifkan.
+                </div>
+                <button onClick={refetch} style={{ marginTop:10, padding:"6px 14px",
+                  borderRadius:8, border:"1px solid #fca5a5", background:"white",
+                  color:"#dc2626", fontSize:12, cursor:"pointer" }}>
+                  🔄 Coba Lagi
+                </button>
+              </div>
+            )}
+
+            {loading && <Skeleton/>}
+
+            {!loading && !error && filtered.length === 0 && (
+              <div style={{ textAlign:"center", padding:"60px 20px", color:"#9ca3af" }}>
+                <div style={{ fontSize:48, marginBottom:12 }}>🔍</div>
+                <div style={{ fontSize:16, fontWeight:500, marginBottom:4 }}>Tidak ditemukan</div>
+                <div style={{ fontSize:13 }}>Coba ubah kata kunci atau filter</div>
+                <button onClick={reset} style={{ marginTop:14, padding:"8px 20px",
+                  borderRadius:8, border:"none", background:"#1B4332",
+                  color:"white", fontSize:13, cursor:"pointer" }}>
+                  Reset Pencarian
+                </button>
+              </div>
+            )}
+
+            {!loading && !error && filtered.length > 0 && (
+              <div style={{ display:"grid",
+                gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:16 }}>
+                {filtered.map(m => (
+                  <KartuMasjid key={m.id} masjid={m} onClick={setSelected}/>
+                ))}
+              </div>
+            )}
+
+            <div style={{ marginTop:48, paddingTop:20, borderTop:"1px solid #e8e0d0",
+              textAlign:"center", fontSize:11, color:"#9ca3af", lineHeight:1.8 }}>
+              Direktori Masjid & Musholla · Kecamatan Pilangkenceng, Kabupaten Madiun<br/>
+              Kerjasama: KUA Kec. Pilangkenceng · BKM · PW DMI · APRI & IPARI · Kanwil Kemenag Jatim
+            </div>
+          </main>
+
+          {selected && <ModalDetail masjid={selected} onClose={() => setSelected(null)}/>}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<AlbumMasjid/>);
+  </script>
 </body>
 </html>
