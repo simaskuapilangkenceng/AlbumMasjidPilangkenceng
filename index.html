@@ -412,7 +412,7 @@
             <span style={{ color:"#1B4332", transform: open?"rotate(180deg)":"rotate(0deg)",
               transition:"transform .25s", fontSize:12 }}>▼</span>
           </button>
-          <div style={{ maxHeight: open ? 2000 : 0, overflow:"hidden", transition:"max-height .4s ease" }}>
+          <div style={{ maxHeight: open ? 9999 : 0, overflow:"hidden", transition:"max-height .5s ease" }}>
             <div style={{ padding:"4px 20px 18px 64px" }}>{children}</div>
           </div>
         </div>
@@ -427,33 +427,35 @@
       const urls = (urlString || "").split(",").map(u => u.trim()).filter(Boolean);
       if (urls.length === 0) return null;
 
-      // Layout: 1 foto → full width, 2+ foto → 2 kolom
+      // Layout: 1 foto → full width 16:9, 2+ foto → 2 kolom tinggi tetap 110px
       const cols = urls.length === 1 ? 1 : 2;
+      const thumbH = urls.length === 1 ? "auto" : "110px";
+      const thumbRatio = urls.length === 1 ? "16/9" : undefined;
 
       return (
-        <div style={{ marginBottom:16 }}>
-          <div style={{ fontSize:12, color:"#9ca3af", marginBottom:8, display:"flex", alignItems:"center", gap:6 }}>
+        <div style={{ marginBottom:12 }}>
+          <div style={{ fontSize:11, color:"#9ca3af", marginBottom:6, display:"flex", alignItems:"center", gap:5 }}>
             <span>{icon} {label}</span>
             <span style={{ background:"#f0e8d8", color:"#1B4332", fontWeight:700,
-              fontSize:10, borderRadius:20, padding:"1px 7px" }}>{urls.length} foto</span>
+              fontSize:10, borderRadius:20, padding:"1px 6px" }}>{urls.length} foto</span>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:`repeat(${cols},1fr)`, gap:6 }}>
+          <div style={{ display:"grid", gridTemplateColumns:`repeat(${cols},1fr)`, gap:5 }}>
             {urls.map((url, i) => (
               <div key={i} onClick={() => setLightbox(i)}
-                style={{ position:"relative", borderRadius:10, overflow:"hidden",
-                  aspectRatio: urls.length === 1 ? "16/9" : "1",
+                style={{ position:"relative", borderRadius:8, overflow:"hidden",
+                  height: thumbH, aspectRatio: thumbRatio,
                   background:"#f3f4f6", border:"1px solid #e5e7eb", cursor:"zoom-in" }}>
                 <img src={url} alt={label + " " + (i+1)}
                   style={{ width:"100%", height:"100%", objectFit:"cover",
                     transition:"transform .3s ease" }}
-                  onMouseEnter={e => e.target.style.transform="scale(1.05)"}
+                  onMouseEnter={e => e.target.style.transform="scale(1.06)"}
                   onMouseLeave={e => e.target.style.transform="scale(1)"}
                   onError={e => { e.target.parentNode.style.background="#f0e8d8";
                     e.target.style.display="none"; }}
                 />
-                <div style={{ position:"absolute", bottom:4, right:6,
-                  fontSize:10, color:"rgba(255,255,255,.85)",
-                  textShadow:"0 1px 3px rgba(0,0,0,.6)" }}>
+                <div style={{ position:"absolute", bottom:3, right:5,
+                  fontSize:9, color:"rgba(255,255,255,.9)",
+                  textShadow:"0 1px 3px rgba(0,0,0,.7)" }}>
                   {i+1}/{urls.length}
                 </div>
               </div>
@@ -863,8 +865,12 @@
                   </a>
                 )}
               </div>
-              <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid #e2d9c8" }}>
-                <FR label="Surveyor" value={masjid.namaSurveyor}/>
+              <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid #e2d9c8",
+                display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:11, color:"#9ca3af", minWidth:90 }}>👤 Surveyor</span>
+                <span style={{ fontSize:12, fontWeight:600, color:"#1B4332" }}>
+                  {masjid.namaSurveyor || "—"}
+                </span>
               </div>
             </AccordionSeksi>
 
