@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>Album Masjid & Musholla – Kec. Pilangkenceng, Kab. Madiun</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -16,6 +16,10 @@
     :root { --hijau: #1B4332; --emas: #D4A853; --krem: #FAFAF7; --border: #e2d9c8; }
     body { background: var(--krem); font-family: 'DM Sans', sans-serif; }
     input, select, button { font-family: inherit; }
+    /* FIX: iOS Safari auto-zoom terjadi jika font-size input < 16px */
+    @media (max-width: 768px) {
+      input, select, textarea { font-size: 16px !important; }
+    }
     input::placeholder { color: rgba(255,255,255,.45); }
     select { appearance: none; -webkit-appearance: none; }
     ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -312,7 +316,8 @@
         urlFotoKiblat:      fixImgUrls(cv(row, IDX.URL_FOTO_SERTIF_KIBLAT)),
         jumlahFoto:         cv(row, IDX.JUMLAH_FOTO),
         statusProses:       cv(row, IDX.STATUS_PROSES),
-        fotoUtama:          fixImgUrl(cv(row, IDX.URL_FOTO_DEPAN).split(",")[0].trim()),
+        // BUG FIX: ambil dari urlFotoDepan yang sudah dikonversi, bukan dari cv() mentah
+        get fotoUtama() { return this.urlFotoDepan ? this.urlFotoDepan.split(",")[0].trim() : ""; },
       };
     };
 
@@ -394,9 +399,21 @@
     // ════════════════════════════════════════════════════════════
     function AccordionSeksi({ icon, judul, badge, children, defaultOpen=false }) {
       const [open, setOpen] = useState(defaultOpen);
+      const ref = useRef(null);
+
+      const handleToggle = () => {
+        const willOpen = !open;
+        setOpen(willOpen);
+        if (willOpen) {
+          setTimeout(() => {
+            ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 80);
+        }
+      };
+
       return (
-        <div style={{ borderBottom:"1px solid #e2d9c8" }}>
-          <button onClick={() => setOpen(!open)} style={{
+        <div ref={ref} style={{ borderBottom:"1px solid #e2d9c8" }}>
+          <button onClick={handleToggle} style={{
             width:"100%", display:"flex", alignItems:"center", gap:12,
             padding:"14px 20px", background: open ? "#f8f4ed" : "white",
             border:"none", cursor:"pointer", textAlign:"left", transition:"background .2s",
