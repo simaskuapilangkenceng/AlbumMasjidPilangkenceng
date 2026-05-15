@@ -437,81 +437,45 @@
     }
 
     // ════════════════════════════════════════════════════════════
-    //  KOMPONEN: FOTO GRID (Galeri 2 kolom)
+    //  KOMPONEN: FOTO THUMBNAIL SEDERHANA (tanpa lightbox)
+    //  Klik thumbnail → buka di tab baru langsung dari Drive
     // ════════════════════════════════════════════════════════════
     function FotoGrid({ label, urlString, icon }) {
-      const [lightbox, setLightbox] = useState(null);
       const urls = (urlString || "").split(",").map(u => u.trim()).filter(Boolean);
       if (urls.length === 0) return null;
 
-      // Layout: 1 foto → full width 16:9, 2+ foto → 2 kolom tinggi tetap 110px
-      const cols = urls.length === 1 ? 1 : 2;
-      const thumbH = urls.length === 1 ? "auto" : "110px";
-      const thumbRatio = urls.length === 1 ? "16/9" : undefined;
+      // Konversi URL thumbnail ke URL view (buka di Drive saat diklik)
+      const toViewUrl = (thumbUrl) => {
+        const m = thumbUrl.match(/[?&]id=([^&]+)/);
+        return m ? `https://drive.google.com/file/d/${m[1]}/view` : thumbUrl;
+      };
 
       return (
         <div style={{ marginBottom:12 }}>
-          <div style={{ fontSize:11, color:"#9ca3af", marginBottom:6, display:"flex", alignItems:"center", gap:5 }}>
+          <div style={{ fontSize:11, color:"#9ca3af", marginBottom:6,
+            display:"flex", alignItems:"center", gap:5 }}>
             <span>{icon} {label}</span>
             <span style={{ background:"#f0e8d8", color:"#1B4332", fontWeight:700,
               fontSize:10, borderRadius:20, padding:"1px 6px" }}>{urls.length} foto</span>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:`repeat(${cols},1fr)`, gap:5 }}>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
             {urls.map((url, i) => (
-              <div key={i} onClick={() => setLightbox(i)}
-                style={{ position:"relative", borderRadius:8, overflow:"hidden",
-                  height: thumbH, aspectRatio: thumbRatio,
-                  background:"#f3f4f6", border:"1px solid #e5e7eb", cursor:"zoom-in" }}>
-                <img src={url} alt={label + " " + (i+1)}
-                  style={{ width:"100%", height:"100%", objectFit:"cover",
-                    transition:"transform .3s ease" }}
-                  onMouseEnter={e => e.target.style.transform="scale(1.06)"}
-                  onMouseLeave={e => e.target.style.transform="scale(1)"}
-                  onError={e => { e.target.parentNode.style.background="#f0e8d8";
-                    e.target.style.display="none"; }}
+              <a key={i} href={toViewUrl(url)} target="_blank" rel="noreferrer"
+                title={`${label} ${i+1} — klik untuk buka`}
+                style={{ display:"block", flexShrink:0 }}>
+                <img src={url} alt={`${label} ${i+1}`}
+                  style={{ width:90, height:68, objectFit:"cover",
+                    borderRadius:7, border:"1px solid #e2d9c8",
+                    display:"block" }}
+                  onError={e => { e.target.parentNode.style.display="none"; }}
                 />
-                <div style={{ position:"absolute", bottom:3, right:5,
-                  fontSize:9, color:"rgba(255,255,255,.9)",
-                  textShadow:"0 1px 3px rgba(0,0,0,.7)" }}>
-                  {i+1}/{urls.length}
-                </div>
-              </div>
+              </a>
             ))}
           </div>
-
-          {/* Lightbox */}
-          {lightbox !== null && (
-            <div onClick={() => setLightbox(null)}
-              style={{ position:"fixed", inset:0, zIndex:2000,
-                background:"rgba(0,0,0,.92)", display:"flex",
-                alignItems:"center", justifyContent:"center", padding:16 }}>
-              <button onClick={e => { e.stopPropagation(); setLightbox(l => l > 0 ? l-1 : urls.length-1); }}
-                style={{ position:"absolute", left:16, top:"50%", transform:"translateY(-50%)",
-                  background:"rgba(255,255,255,.15)", border:"none", color:"white",
-                  width:44, height:44, borderRadius:"50%", fontSize:20, cursor:"pointer" }}>‹</button>
-              <img src={urls[lightbox]} alt={label}
-                style={{ maxWidth:"90vw", maxHeight:"88vh", borderRadius:12,
-                  objectFit:"contain", boxShadow:"0 24px 64px rgba(0,0,0,.6)" }}
-                onClick={e => e.stopPropagation()}
-              />
-              <button onClick={e => { e.stopPropagation(); setLightbox(l => l < urls.length-1 ? l+1 : 0); }}
-                style={{ position:"absolute", right:16, top:"50%", transform:"translateY(-50%)",
-                  background:"rgba(255,255,255,.15)", border:"none", color:"white",
-                  width:44, height:44, borderRadius:"50%", fontSize:20, cursor:"pointer" }}>›</button>
-              <div style={{ position:"absolute", bottom:20, left:"50%", transform:"translateX(-50%)",
-                fontSize:12, color:"rgba(255,255,255,.6)", background:"rgba(0,0,0,.4)",
-                padding:"4px 12px", borderRadius:20 }}>
-                {icon} {label} · {lightbox+1} / {urls.length}
-              </div>
-              <button onClick={() => setLightbox(null)}
-                style={{ position:"absolute", top:16, right:16,
-                  background:"rgba(255,255,255,.15)", border:"none", color:"white",
-                  width:36, height:36, borderRadius:"50%", fontSize:18, cursor:"pointer" }}>×</button>
-            </div>
-          )}
         </div>
       );
     }
+
 
     // ════════════════════════════════════════════════════════════
     //  FUNGSI CETAK PROFIL (tanpa PDF)
