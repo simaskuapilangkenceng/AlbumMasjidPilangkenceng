@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>Album Masjid & Musholla – Kec. Pilangkenceng, Kab. Madiun</title>
+  <title>Album Masjid & Musholla – Kec. Pilangkenceng, Kab. Madiun | v4.4</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -43,14 +43,20 @@
     const { useState, useMemo, useEffect, useCallback, useRef } = React;
 
     // ════════════════════════════════════════════════════════════
-    //  KONFIGURASI — v3.9 (Spreadsheet ID index.html asli)
+    //  KONFIGURASI — v4.4 (Admin Login Terintegrasi [ADMIN-03])
     // ════════════════════════════════════════════════════════════
     const SHEETS_CONFIG = {
       SPREADSHEET_ID: "1yXZnF2QSgqD5SHIgSqQA8UDYdvFfXbl51UVgpZ7TY5M",
       SHEET_NAME:     "Form Responses 1",
       API_KEY:        "AIzaSyA4VRcMWoGk57JL3j-eWjnoCp6cjvzanXY",
       CENTER:         [-7.5666, 111.5833],
+	  // Deployment ID: AKfycbwQzR1wGzc_b7EMFO754XeNicN-oFjoSDttsqHdRrI6Vh2b3grRU29FQCfnyjz_TgGRXA
     };
+
+    // ════════════════════════════════════════════════════════════
+    //  [ADMIN-03] URL Web App Apps Script — isi setelah deploy
+    // ════════════════════════════════════════════════════════════
+    const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwQzR1wGzc_b7EMFO754XeNicN-oFjoSDttsqHdRrI6Vh2b3grRU29FQCfnyjz_TgGRXA/exec";
 
     // ════════════════════════════════════════════════════════════
     //  MAPPING INDEX KOLOM — v3.9 (116 kolom, index 0–115)
@@ -1586,12 +1592,423 @@
     }
 
     // ════════════════════════════════════════════════════════════
+    //  [ADMIN-03] KOMPONEN: AdminLoginModal
+    //  Modal login admin — tampil saat tombol 🔐 Admin diklik
+    // ════════════════════════════════════════════════════════════
+    function AdminLoginModal({ onClose, onLoginSuccess }) {
+      const [username,   setUsername]   = useState("");
+      const [password,   setPassword]   = useState("");
+      const [showPass,   setShowPass]   = useState(false);
+      const [loading,    setLoading]    = useState(false);
+      const [error,      setError]      = useState("");
+      const [tab,        setTab]        = useState("login");  // "login" | "register"
+
+      // Register state
+      const [regUsername, setRegUsername] = useState("");
+      const [regPassword, setRegPassword] = useState("");
+      const [regNama,     setRegNama]     = useState("");
+      const [regLoading,  setRegLoading]  = useState(false);
+      const [regMsg,      setRegMsg]      = useState(null);  // { ok, text }
+
+      // Tutup modal saat klik backdrop
+      const handleBackdrop = (e) => {
+        if (e.target === e.currentTarget) onClose();
+      };
+
+      // ── Handler Login ─────────────────────────────────────────
+      const handleLogin = async () => {
+        if (!username.trim() || !password) {
+          setError("Username dan password wajib diisi.");
+          return;
+        }
+        setLoading(true);
+        setError("");
+        try {
+          const res = await fetch(WEBAPP_URL, {
+            method:  "POST",
+            headers: { "Content-Type": "text/plain" },
+            body:    JSON.stringify({ action: "login", username: username.trim(), password }),
+          });
+          const json = await res.json();
+          if (json.ok) {
+            const session = {
+              token:   json.token,
+              nama:    json.nama,
+              level:   json.level,
+              desa:    json.desa || null,
+              loginAt: Date.now(),
+            };
+            sessionStorage.setItem("albumMasjidAdmin", JSON.stringify(session));
+            onLoginSuccess(session);
+            onClose();
+          } else {
+            setError(json.error || "Login gagal.");
+          }
+        } catch(e) {
+          setError("Gagal menghubungi server. Periksa koneksi internet.");
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // Enter key di form login
+      const handleKeyDown = (e) => {
+        if (e.key === "Enter" && !loading) handleLogin();
+      };
+
+      // ── Handler Register ──────────────────────────────────────
+      const handleRegister = async () => {
+        if (!regUsername.trim() || !regPassword || !regNama.trim()) {
+          setRegMsg({ ok: false, text: "Semua field wajib diisi." });
+          return;
+        }
+        setRegLoading(true);
+        setRegMsg(null);
+        try {
+          const res = await fetch(WEBAPP_URL, {
+            method:  "POST",
+            headers: { "Content-Type": "text/plain" },
+            body:    JSON.stringify({
+              action:       "register",
+              username:     regUsername.trim(),
+              password:     regPassword,
+              namaSurveyor: regNama.trim(),
+            }),
+          });
+          const json = await res.json();
+          if (json.ok) {
+            setRegMsg({
+              ok:   true,
+              text: json.message +
+                    (json.daftarDesa?.length
+                      ? " Akses desa: " + json.daftarDesa.join(", ") + "."
+                      : ""),
+            });
+            setRegUsername(""); setRegPassword(""); setRegNama("");
+          } else {
+            setRegMsg({ ok: false, text: json.error || "Pendaftaran gagal." });
+          }
+        } catch(e) {
+          setRegMsg({ ok: false, text: "Gagal menghubungi server." });
+        } finally {
+          setRegLoading(false);
+        }
+      };
+
+      // ── Style helpers ─────────────────────────────────────────
+      const overlay = {
+        position:"fixed", inset:0, zIndex:2000,
+        background:"rgba(0,0,0,.55)", backdropFilter:"blur(3px)",
+        display:"flex", alignItems:"center", justifyContent:"center",
+        padding:"16px",
+      };
+      const modal = {
+        background:"#FAFAF7", borderRadius:20,
+        boxShadow:"0 24px 64px rgba(27,67,50,.25)",
+        width:"100%", maxWidth:420, overflow:"hidden",
+        animation:"fadeIn .2s ease",
+      };
+      const inpStyle = {
+        width:"100%", padding:"11px 14px", borderRadius:10,
+        border:"1.5px solid #e2d9c8", fontSize:14,
+        fontFamily:"'DM Sans',sans-serif", outline:"none",
+        background:"white", color:"#1a1a1a", boxSizing:"border-box",
+        transition:"border-color .2s",
+      };
+      const btn = (primary=true) => ({
+        width:"100%", padding:"12px", borderRadius:10, border:"none",
+        cursor:"pointer", fontSize:14, fontWeight:600,
+        fontFamily:"'DM Sans',sans-serif", transition:"opacity .2s",
+        background: primary ? "#1B4332" : "#f0e8d8",
+        color:      primary ? "white"   : "#1B4332",
+        opacity: loading || regLoading ? .7 : 1,
+      });
+
+      const LEVEL_BADGE = { super:"👑 Super Admin", editor:"✏️ Editor", viewer:"👁 Viewer" };
+
+      return (
+        <div style={overlay} onClick={handleBackdrop}>
+          <div style={modal}>
+
+            {/* ── Header modal ── */}
+            <div style={{ background:"#1B4332", padding:"20px 24px",
+              display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <div>
+                <div style={{ fontFamily:"'Playfair Display',serif",
+                  fontSize:17, fontWeight:700, color:"white" }}>🔐 Admin Area</div>
+                <div style={{ fontSize:11, color:"rgba(212,168,83,.85)", marginTop:2 }}>
+                  Album Masjid Pilangkenceng
+                </div>
+              </div>
+              <button onClick={onClose} style={{ background:"rgba(255,255,255,.12)",
+                border:"none", color:"white", width:32, height:32, borderRadius:"50%",
+                cursor:"pointer", fontSize:16, display:"flex",
+                alignItems:"center", justifyContent:"center" }}>✕</button>
+            </div>
+
+            {/* ── Tab switcher ── */}
+            <div style={{ display:"flex", borderBottom:"1px solid #e2d9c8" }}>
+              {[["login","Masuk"],["register","Daftar Surveyor"]].map(([id,label]) => (
+                <button key={id} onClick={() => { setTab(id); setError(""); setRegMsg(null); }}
+                  style={{ flex:1, padding:"12px", border:"none", cursor:"pointer",
+                    fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif",
+                    background: tab===id ? "white" : "#f8f4ed",
+                    color:      tab===id ? "#1B4332" : "#9ca3af",
+                    borderBottom: tab===id ? "2px solid #1B4332" : "2px solid transparent",
+                  }}>{label}</button>
+              ))}
+            </div>
+
+            <div style={{ padding:"24px" }}>
+
+              {/* ── TAB LOGIN ── */}
+              {tab === "login" && (
+                <>
+                  <div style={{ marginBottom:14 }}>
+                    <label style={{ fontSize:12, color:"#6b7280", fontWeight:500,
+                      display:"block", marginBottom:5 }}>Username</label>
+                    <input
+                      type="text" value={username} autoComplete="username"
+                      placeholder="Masukkan username"
+                      onChange={e => setUsername(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      style={inpStyle}
+                    />
+                  </div>
+                  <div style={{ marginBottom:18 }}>
+                    <label style={{ fontSize:12, color:"#6b7280", fontWeight:500,
+                      display:"block", marginBottom:5 }}>Password</label>
+                    <div style={{ position:"relative" }}>
+                      <input
+                        type={showPass ? "text" : "password"}
+                        value={password} autoComplete="current-password"
+                        placeholder="Masukkan password"
+                        onChange={e => setPassword(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        style={{ ...inpStyle, paddingRight:44 }}
+                      />
+                      <button onClick={() => setShowPass(!showPass)}
+                        style={{ position:"absolute", right:12, top:"50%",
+                          transform:"translateY(-50%)", background:"none",
+                          border:"none", cursor:"pointer", fontSize:16,
+                          color:"#9ca3af", padding:0 }}>
+                        {showPass ? "🙈" : "👁"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div style={{ background:"#fee2e2", color:"#b91c1c",
+                      borderRadius:8, padding:"10px 14px", fontSize:13,
+                      marginBottom:14, display:"flex", alignItems:"center", gap:8 }}>
+                      ⚠️ {error}
+                    </div>
+                  )}
+
+                  <button onClick={handleLogin} disabled={loading} style={btn(true)}>
+                    {loading ? "⏳ Memverifikasi..." : "🔐 Masuk"}
+                  </button>
+
+                  {/* Info level */}
+                  <div style={{ marginTop:18, padding:"12px 14px",
+                    background:"#f8f4ed", borderRadius:10, fontSize:11, color:"#9ca3af",
+                    lineHeight:1.7 }}>
+                    {Object.entries(LEVEL_BADGE).map(([lvl, lbl]) => (
+                      <div key={lvl}><strong style={{ color:"#6b7280" }}>{lbl}</strong>{
+                        lvl==="super"  ? " — edit semua data & lihat nomor WA" :
+                        lvl==="editor" ? " — edit data operasional desa yang ditugaskan" :
+                                         " — akses baca saja + badge terverifikasi"
+                      }</div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* ── TAB REGISTER ── */}
+              {tab === "register" && (
+                <>
+                  <p style={{ fontSize:12, color:"#6b7280", marginBottom:16, lineHeight:1.6 }}>
+                    Khusus surveyor yang sudah menginput data di Google Form. Nama harus
+                    sama persis dengan yang ditulis saat survey.
+                  </p>
+
+                  {[
+                    { label:"Nama Lengkap (sesuai Form)", val:regNama,     set:setRegNama,     type:"text",     ph:"Nama seperti di Google Form" },
+                    { label:"Username baru (4–20 karakter)", val:regUsername, set:setRegUsername, type:"text",   ph:"huruf, angka, underscore" },
+                    { label:"Password baru (min. 6 karakter)", val:regPassword, set:setRegPassword, type:"password", ph:"Minimal 6 karakter" },
+                  ].map(({ label, val, set, type, ph }) => (
+                    <div key={label} style={{ marginBottom:14 }}>
+                      <label style={{ fontSize:12, color:"#6b7280", fontWeight:500,
+                        display:"block", marginBottom:5 }}>{label}</label>
+                      <input type={type} value={val} placeholder={ph}
+                        onChange={e => set(e.target.value)}
+                        style={inpStyle}
+                      />
+                    </div>
+                  ))}
+
+                  {regMsg && (
+                    <div style={{
+                      background: regMsg.ok ? "#dcfce7" : "#fee2e2",
+                      color:      regMsg.ok ? "#15803d" : "#b91c1c",
+                      borderRadius:8, padding:"10px 14px", fontSize:13,
+                      marginBottom:14,
+                    }}>
+                      {regMsg.ok ? "✅ " : "⚠️ "}{regMsg.text}
+                    </div>
+                  )}
+
+                  <button onClick={handleRegister} disabled={regLoading} style={btn(true)}>
+                    {regLoading ? "⏳ Mendaftar..." : "📝 Daftar Akun"}
+                  </button>
+
+                  {regMsg?.ok && (
+                    <button onClick={() => setTab("login")} style={{ ...btn(false), marginTop:8 }}>
+                      Lanjut ke Login →
+                    </button>
+                  )}
+                </>
+              )}
+
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+
+    // ════════════════════════════════════════════════════════════
+    //  [ADMIN-03] KOMPONEN: AdminBadge
+    //  Badge di header jika sudah login — tampilkan nama + tombol logout
+    // ════════════════════════════════════════════════════════════
+    function AdminBadge({ session, onLogout }) {
+      const [loading, setLoading] = useState(false);
+      const [expand,  setExpand]  = useState(false);
+
+      const LEVEL_COLOR = {
+        super:  { bg:"#fef9c3", color:"#a16207" },
+        editor: { bg:"#dcfce7", color:"#15803d" },
+        viewer: { bg:"#f3f4f6", color:"#6b7280" },
+      };
+      const lc = LEVEL_COLOR[session.level] || LEVEL_COLOR.viewer;
+
+      const handleLogout = async () => {
+        setLoading(true);
+        try {
+          await fetch(WEBAPP_URL, {
+            method:  "POST",
+            headers: { "Content-Type": "text/plain" },
+            body:    JSON.stringify({ action: "logout", token: session.token }),
+          });
+        } catch(e) { /* ignore network error saat logout */ }
+        sessionStorage.removeItem("albumMasjidAdmin");
+        onLogout();
+        setLoading(false);
+      };
+
+      const LEVEL_LABEL = { super:"👑 Super", editor:"✏️ Editor", viewer:"👁 Viewer" };
+
+      return (
+        <div style={{ position:"relative" }}>
+          <button onClick={() => setExpand(!expand)} style={{
+            display:"flex", alignItems:"center", gap:7,
+            padding:"6px 12px", borderRadius:24,
+            border:"1px solid rgba(212,168,83,.4)",
+            background:"rgba(212,168,83,.15)", cursor:"pointer",
+            fontFamily:"'DM Sans',sans-serif",
+          }}>
+            <span style={{ fontSize:16 }}>🛡️</span>
+            <span style={{ fontSize:11, fontWeight:600, color:"#D4A853",
+              maxWidth:100, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              {session.nama.split(" ")[0]}
+            </span>
+            <span style={{ fontSize:10, color:"rgba(212,168,83,.7)" }}>▾</span>
+          </button>
+
+          {expand && (
+            <div style={{
+              position:"absolute", top:"calc(100% + 8px)", right:0,
+              background:"white", borderRadius:14, minWidth:200,
+              boxShadow:"0 8px 32px rgba(0,0,0,.15)",
+              border:"1px solid #e2d9c8", zIndex:1000,
+              overflow:"hidden", animation:"fadeIn .15s ease",
+            }}>
+              {/* Info user */}
+              <div style={{ padding:"14px 16px", borderBottom:"1px solid #e2d9c8" }}>
+                <div style={{ fontSize:13, fontWeight:700, color:"#1a1a1a",
+                  marginBottom:4 }}>{session.nama}</div>
+                <span style={{ ...lc, fontSize:11, fontWeight:600,
+                  padding:"2px 8px", borderRadius:20, display:"inline-block" }}>
+                  {LEVEL_LABEL[session.level] || session.level}
+                </span>
+                {session.desa && (
+                  <div style={{ fontSize:11, color:"#9ca3af", marginTop:4 }}>
+                    Desa: {Array.isArray(session.desa) ? session.desa.join(", ") : session.desa}
+                  </div>
+                )}
+              </div>
+
+              {/* Waktu login */}
+              <div style={{ padding:"8px 16px", borderBottom:"1px solid #e2d9c8",
+                fontSize:11, color:"#9ca3af" }}>
+                Login: {new Date(session.loginAt).toLocaleTimeString("id-ID",
+                  { hour:"2-digit", minute:"2-digit" })}
+                {" · sesi berakhir "}
+                {new Date(session.loginAt + 8*3600*1000).toLocaleTimeString("id-ID",
+                  { hour:"2-digit", minute:"2-digit" })}
+              </div>
+
+              {/* Tombol logout */}
+              <button onClick={handleLogout} disabled={loading}
+                style={{ width:"100%", padding:"12px 16px", border:"none",
+                  background:"none", cursor: loading ? "not-allowed" : "pointer",
+                  textAlign:"left", fontSize:13, color:"#b91c1c", fontWeight:500,
+                  fontFamily:"'DM Sans',sans-serif", display:"flex",
+                  alignItems:"center", gap:8,
+                  opacity: loading ? .6 : 1,
+                }}>
+                {loading ? "⏳" : "🚪"} {loading ? "Keluar..." : "Keluar (Logout)"}
+              </button>
+            </div>
+          )}
+
+          {/* Klik luar untuk tutup dropdown */}
+          {expand && (
+            <div onClick={() => setExpand(false)}
+              style={{ position:"fixed", inset:0, zIndex:999 }}/>
+          )}
+        </div>
+      );
+    }
+
+
+
+    // ════════════════════════════════════════════════════════════
     //  APP UTAMA
     // ════════════════════════════════════════════════════════════
     function AlbumMasjid() {
       const { data, loading, error, lastSync, refetch } = useSheetData();
-      const [tab,      setTab]      = useState("album");
-      const [selected, setSelected] = useState(null);
+      const [tab,          setTab]          = useState("album");
+      const [selected,     setSelected]     = useState(null);
+      // [ADMIN-03] State admin session
+      const [adminSession, setAdminSession] = useState(null);
+      const [showLogin,    setShowLogin]    = useState(false);
+
+      // [ADMIN-03] Pulihkan session dari sessionStorage saat mount
+      useEffect(() => {
+        try {
+          const saved = sessionStorage.getItem("albumMasjidAdmin");
+          if (saved) {
+            const session = JSON.parse(saved);
+            const expiry = session.loginAt + 8 * 3600 * 1000;
+            if (Date.now() < expiry) {
+              setAdminSession(session);
+            } else {
+              sessionStorage.removeItem("albumMasjidAdmin");
+            }
+          }
+        } catch(e) { /* ignore */ }
+      }, []);
 
       const totalMasjid    = data.filter(m => !m.lokasiSurvey?.toUpperCase().includes("MUSHOLLA")).length;
       const totalMusholla  = data.filter(m =>  m.lokasiSurvey?.toUpperCase().includes("MUSHOLLA")).length;
@@ -1650,8 +2067,25 @@
                   padding:"6px 12px", borderRadius:24,
                   border:"1px solid rgba(255,255,255,.2)",
                   background:"rgba(255,255,255,.08)", color:"rgba(255,255,255,.8)",
-                  cursor: loading ? "not-allowed" : "pointer", fontSize:12
+                  cursor: loading ? "not-allowed" : "pointer", fontSize:12,
+                  fontFamily:"'DM Sans',sans-serif",
                 }}>{loading ? "⏳" : "🔄"} Sinkron</button>
+
+                {/* [ADMIN-03] Tombol Admin / Badge jika sudah login */}
+                {adminSession ? (
+                  <AdminBadge
+                    session={adminSession}
+                    onLogout={() => setAdminSession(null)}
+                  />
+                ) : (
+                  <button onClick={() => setShowLogin(true)} style={{
+                    padding:"6px 12px", borderRadius:24,
+                    border:"1px solid rgba(212,168,83,.4)",
+                    background:"rgba(212,168,83,.1)", color:"rgba(212,168,83,.9)",
+                    cursor:"pointer", fontSize:12, fontWeight:500,
+                    fontFamily:"'DM Sans',sans-serif", transition:"all .2s",
+                  }}>🔐 Admin</button>
+                )}
               </div>
             </div>
           </header>
@@ -1696,6 +2130,15 @@
               masjid={selected}
               onClose={() => setSelected(null)}
               onCetak={m => { setSelected(null); setTimeout(() => cetakProfil(m), 300); }}
+              adminSession={adminSession}
+            />
+          )}
+
+          {/* [ADMIN-03] Modal login admin */}
+          {showLogin && (
+            <AdminLoginModal
+              onClose={() => setShowLogin(false)}
+              onLoginSuccess={(session) => setAdminSession(session)}
             />
           )}
         </div>
