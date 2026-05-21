@@ -639,6 +639,7 @@
       const [localMasjid, setLocalMasjid] = useState(masjid);
 
       return (
+        <>
         <div onClick={onClose} style={{
           position:"fixed", inset:0, zIndex:1000,
           background:"rgba(15,30,20,0.65)", backdropFilter:"blur(6px)",
@@ -892,20 +893,21 @@
 
           </div>
         </div>
-          {/* [ADMIN-04] Modal edit data */}
-          {showEdit && (
-            <EditMasjidModal
-              masjid={localMasjid}
-              adminSession={adminSession}
-              onClose={() => setShowEdit(false)}
-              onSaved={(updatedFields) => {
-                const merged = { ...localMasjid, ...updatedFields };
-                setLocalMasjid(merged);
-                if (onDataUpdated) onDataUpdated(merged);
-              }}
-            />
-          )}
-        </div>
+
+        {/* [ADMIN-04] Modal edit data */}
+        {showEdit && (
+          <EditMasjidModal
+            masjid={localMasjid}
+            adminSession={adminSession}
+            onClose={() => setShowEdit(false)}
+            onSaved={(updatedFields) => {
+              const merged = { ...localMasjid, ...updatedFields };
+              setLocalMasjid(merged);
+              if (onDataUpdated) onDataUpdated(merged);
+            }}
+          />
+        )}
+        </>
       );
     }
 
