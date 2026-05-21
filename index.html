@@ -55,7 +55,7 @@
     // ════════════════════════════════════════════════════════════
     //  [ADMIN-03] URL Web App Apps Script — isi setelah deploy
     // ════════════════════════════════════════════════════════════
-    const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxQyzxJgOlKn5YdJ_e8hBL_ZF8fCMYhYnAzTtzltXYek6IsshCCl-WBejV1XHYVjkFXzA/exec";
+    const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbx79J7ajuHmLfJPChkJmsWC7wIzQNPANCTRyWBJr5H_O-UE0-7Pn6S7DhdpD9mseQIkcA/exec";
 
     // ════════════════════════════════════════════════════════════
     //  MAPPING INDEX KOLOM — v3.9 (116 kolom, index 0–115)
@@ -1249,7 +1249,7 @@
       const SEKSI = [
         {
           judul: "📍 Lokasi & Identitas", fields: [
-            { label:"ID SIMAS",         key:"idSimas",         apiField:"ID_SIMAS",       superOnly:true,  showReadOnly:true },
+            { label:"ID SIMAS",         key:"idSimas",         apiField:"ID_SIMAS" },
             { label:"🔒 Nama Masjid",   key:"namaMasjid",      apiField:"NAMA_MASJID",    superOnly:true,  showReadOnly:true },
             { label:"🔒 Desa",          key:"desa",            apiField:"DESA",           superOnly:true,  showReadOnly:true },
             { label:"Alamat",           key:"alamat",          apiField:"ALAMAT" },
@@ -1389,27 +1389,9 @@
           return;
         }
 
-        // Validasi: ID SIMAS wajib ada untuk non-super.
-        // Super boleh menyimpan meski idSimas kosong (karena mereka mungkin sedang mengisi ID SIMAS).
-        // Dalam kasus itu, gunakan NAMA_MASJID sebagai identifier fallback di Apps Script.
+        // Semua level (editor & super) boleh simpan meski idSimas kosong.
+        // Gunakan NAMA_MASJID sebagai identifier fallback di Apps Script.
         const idSimasKosong = !masjid.idSimas || masjid.idSimas.trim() === "";
-        if (idSimasKosong && !isSuper) {
-          setResult({
-            ok: false,
-            message: "⚠️ ID SIMAS belum terisi di data ini. Minta Super Admin untuk mengisi ID SIMAS terlebih dahulu sebelum bisa menyimpan perubahan.",
-          });
-          return;
-        }
-
-        // Untuk super dengan idSimas kosong: pastikan changes mengandung ID_SIMAS baru,
-        // atau setidaknya nama masjid tersedia untuk pencarian fallback
-        if (idSimasKosong && isSuper && !changes["ID_SIMAS"]) {
-          setResult({
-            ok: false,
-            message: "⚠️ ID SIMAS masih kosong. Isi field ID SIMAS terlebih dahulu sebelum menyimpan.",
-          });
-          return;
-        }
 
         setLoading(true);
         setResult(null);
@@ -1423,7 +1405,7 @@
           if (!idSimasKosong) {
             payload.idSimas = masjid.idSimas;
           } else {
-            // Fallback: cari baris berdasarkan nama masjid (hanya super, sudah divalidasi di atas)
+            // Fallback: cari baris berdasarkan nama masjid (semua level bisa simpan tanpa ID SIMAS)
             payload.namaMasjidFallback = masjid.namaMasjid;
           }
 
@@ -1467,8 +1449,8 @@
       };
 
       const changedCount = Object.keys(getChanges()).length;
-      // Super admin bisa menyimpan meski ID SIMAS kosong (karena bisa sedang mengisinya)
-      const noIdSimas    = (!masjid.idSimas || masjid.idSimas.trim() === "") && !isSuper;
+      // Semua level bisa menyimpan meski ID SIMAS kosong
+      const noIdSimas    = false;
 
       const inpStyle = {
         width:"100%", padding:"8px 11px", borderRadius:8,
@@ -1515,20 +1497,17 @@
               </div>
             </div>
 
-            {/* Peringatan ID SIMAS kosong */}
+            {/* Info ID SIMAS kosong — hanya informatif, tidak memblokir */}
             {(!masjid.idSimas || masjid.idSimas.trim() === "") && (
-              <div style={{ background: isSuper ? "#fef3c7" : "#fef3c7", borderBottom:"1px solid #fde68a",
-                padding:"9px 20px", fontSize:12, color:"#92400e", display:"flex", alignItems:"flex-start", gap:6 }}>
-                <span style={{ fontSize:14 }}>⚠️</span>
-                {isSuper
-                  ? <span><strong>ID SIMAS belum terisi.</strong> Isi field <strong>ID SIMAS</strong> di seksi "📍 Lokasi & Identitas" lalu simpan untuk mengaktifkan pencarian berbasis ID.</span>
-                  : <span><strong>ID SIMAS belum terisi.</strong> Data bisa dilihat, tapi <strong>tidak bisa disimpan</strong> sampai Super Admin mengisi ID SIMAS terlebih dahulu.</span>
-                }
+              <div style={{ background: "#eff6ff", borderBottom:"1px solid #bfdbfe",
+                padding:"9px 20px", fontSize:12, color:"#1e40af", display:"flex", alignItems:"flex-start", gap:6 }}>
+                <span style={{ fontSize:14 }}>ℹ️</span>
+                <span><strong>ID SIMAS belum terisi.</strong> Data tetap bisa disimpan. Isi field <strong>ID SIMAS</strong> di seksi "📍 Lokasi & Identitas" untuk mengaktifkan pencarian berbasis ID.</span>
               </div>
             )}
 
             {/* Info perubahan */}
-            {changedCount > 0 && !noIdSimas && (
+            {changedCount > 0 && (
               <div style={{ background:"#fffbeb", borderBottom:"1px solid #fde68a",
                 padding:"8px 20px", fontSize:12, color:"#92400e" }}>
                 ✏️ {changedCount} field diubah — belum disimpan
@@ -1620,15 +1599,15 @@
                 background:"white", color:"#6b7280", cursor:"pointer",
                 fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif",
               }}>Batal</button>
-              <button onClick={handleSave} disabled={loading || changedCount === 0 || noIdSimas} style={{
+              <button onClick={handleSave} disabled={loading || changedCount === 0} style={{
                 flex:2, padding:"11px", borderRadius:10, border:"none",
-                background: (changedCount > 0 && !noIdSimas) ? "#1B4332" : "#e2d9c8",
-                color:      (changedCount > 0 && !noIdSimas) ? "white"   : "#9ca3af",
-                cursor: (loading || changedCount === 0 || noIdSimas) ? "not-allowed" : "pointer",
+                background: changedCount > 0 ? "#1B4332" : "#e2d9c8",
+                color:      changedCount > 0 ? "white"   : "#9ca3af",
+                cursor: (loading || changedCount === 0) ? "not-allowed" : "pointer",
                 fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif",
                 transition:"all .2s",
               }}>
-                {loading ? "⏳ Menyimpan..." : noIdSimas ? "⚠️ ID SIMAS belum ada" : changedCount > 0 ? `💾 Simpan (${changedCount} perubahan)` : "Tidak ada perubahan"}
+                {loading ? "⏳ Menyimpan..." : changedCount > 0 ? `💾 Simpan (${changedCount} perubahan)` : "Tidak ada perubahan"}
               </button>
             </div>
 
