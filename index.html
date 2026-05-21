@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>Album Masjid & Musholla – Kec. Pilangkenceng, Kab. Madiun | v4.5</title>
+  <title>Album Masjid & Musholla – Kec. Pilangkenceng, Kab. Madiun | v4.6</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -1233,118 +1233,150 @@
 
 
     // ════════════════════════════════════════════════════════════
-    //  [ADMIN-04] KOMPONEN: EditMasjidModal
-    //  Form edit data masjid — kirim ke Apps Script via POST
+    //  [ADMIN-04] KOMPONEN: EditMasjidModal — v4.6
+    //  Perbaikan: + Koordinat GPS, + Link GMaps, + semua field editor,
+    //             + ID SIMAS tampil (read-only), Nama Masjid & Desa lock.
     // ════════════════════════════════════════════════════════════
     function EditMasjidModal({ masjid, adminSession, onClose, onSaved }) {
       const isSuper  = adminSession?.level === "super";
       const isEditor = adminSession?.level === "editor" || isSuper;
 
-      // Field groups — setiap seksi berisi label + fieldKey
+      // ── SEKSI & FIELD DEFINITION ─────────────────────────────
+      // superOnly  = hanya super admin yang bisa edit
+      // editorOk   = editor & super bisa edit (default)
+      // readOnly   = tampil tapi tidak bisa diedit
+      // full       = span 2 kolom
       const SEKSI = [
         {
+          judul: "📍 Lokasi & Identitas", fields: [
+            { label:"ID SIMAS",         key:"idSimas",         apiField:"ID_SIMAS",       superOnly:true,  showReadOnly:true },
+            { label:"🔒 Nama Masjid",   key:"namaMasjid",      apiField:"NAMA_MASJID",    superOnly:true,  showReadOnly:true },
+            { label:"🔒 Desa",          key:"desa",            apiField:"DESA",           superOnly:true,  showReadOnly:true },
+            { label:"Alamat",           key:"alamat",          apiField:"ALAMAT" },
+            { label:"Tipologi",         key:"tipologi",        apiField:"TIPOLOGI" },
+            { label:"Afiliasi",         key:"afiliasi",        apiField:"AFILIASI" },
+            { label:"Tahun Berdiri",    key:"tahunBerdiri",    apiField:"TAHUN_BERDIRI" },
+            { label:"Koordinat LS",     key:"koordinatLS",     apiField:"KOORDINAT_LS",   placeholder:"-7.xxxx" },
+            { label:"Koordinat BT",     key:"koordinatBT",     apiField:"KOORDINAT_BT",   placeholder:"111.xxxx" },
+            { label:"Link Google Maps", key:"linkGmaps",       apiField:"LINK_GMAPS",     full:true, placeholder:"https://maps.google.com/..." },
+          ]
+        },
+        {
           judul: "👥 Pengurus & Petugas", fields: [
-            { label:"Ketua Takmir",     key:"namaKetua",       idx:16 },
-            { label:"Sekretaris",       key:"namaSekretaris",  idx:18 },
-            { label:"Pengurus Lain",    key:"pengurusLain",    idx:20 },
-            { label:"Nama Imam 1",      key:"namaImam1",       idx:43 },
-            { label:"Nama Imam 2",      key:"namaImam2",       idx:44 },
-            { label:"Nama Imam 3",      key:"namaImam3",       idx:45 },
-            { label:"Nama Muadzin 1",   key:"namaMuadzin1",    idx:49 },
-            { label:"Nama Muadzin 2",   key:"namaMuadzin2",    idx:50 },
-            { label:"Nama Marbot 1",    key:"namaMarbot1",     idx:55 },
-            { label:"Nama Marbot 2",    key:"namaMarbot2",     idx:56 },
+            { label:"Ketua Takmir",     key:"namaKetua",       apiField:"NAMA_KETUA" },
+            { label:"WA Ketua",         key:"waKetua",         apiField:"WA_KETUA",       superOnly:true },
+            { label:"Sekretaris",       key:"namaSekretaris",  apiField:"NAMA_SEKRETARIS" },
+            { label:"WA Sekretaris",    key:"waSekretaris",    apiField:"WA_SEKRETARIS",  superOnly:true },
+            { label:"Pengurus Lain",    key:"pengurusLain",    apiField:"PENGURUS_LAIN",  full:true },
+            { label:"SK Takmir",        key:"skTakmir",        apiField:"SK_TAKMIR",      superOnly:true },
+            { label:"SK Level",         key:"skLevel",         apiField:"SK_LEVEL",       superOnly:true },
+            { label:"Nama Imam 1",      key:"namaImam1",       apiField:"NAMA_IMAM_1" },
+            { label:"Nama Imam 2",      key:"namaImam2",       apiField:"NAMA_IMAM_2" },
+            { label:"Nama Imam 3",      key:"namaImam3",       apiField:"NAMA_IMAM_3" },
+            { label:"Jumlah Imam",      key:"jumlahImam",      apiField:"JUMLAH_IMAM" },
+            { label:"Nama Muadzin 1",   key:"namaMuadzin1",    apiField:"NAMA_MUADZIN_1" },
+            { label:"Nama Muadzin 2",   key:"namaMuadzin2",    apiField:"NAMA_MUADZIN_2" },
+            { label:"Jumlah Muadzin",   key:"jumlahMuadzin",   apiField:"JUMLAH_MUADZIN" },
+            { label:"Nama Marbot 1",    key:"namaMarbot1",     apiField:"NAMA_MARBOT_1" },
+            { label:"Nama Marbot 2",    key:"namaMarbot2",     apiField:"NAMA_MARBOT_2" },
+            { label:"Jumlah Marbot",    key:"jumlahMarbot",    apiField:"JUMLAH_MARBOT" },
+          ]
+        },
+        {
+          judul: "📊 Jamaah & Kapasitas", fields: [
+            { label:"Luas Tanah (m²)",  key:"luasTanah",       apiField:"LUAS_TANAH",     superOnly:true },
+            { label:"Luas Bangunan (m²)",key:"luasBangunan",   apiField:"LUAS_BANGUNAN",  superOnly:true },
+            { label:"Daya Tampung",     key:"dayaTampung",     apiField:"DAYA_TAMPUNG",   superOnly:true },
+            { label:"Jamaah Total",     key:"jamaahTotal",     apiField:"JAMAAH_TOTAL" },
+            { label:"Jamaah Maghrib",   key:"jamaahMaghrib",   apiField:"JAMAAH_MAGHRIB" },
+            { label:"Jamaah Dhuhur",    key:"jamaahDhuhur",    apiField:"JAMAAH_DHUHUR" },
+            { label:"Jamaah Subuh",     key:"jamaahSubuh",     apiField:"JAMAAH_SUBUH" },
+            { label:"Jamaah Jumat",     key:"jamaahJumat",     apiField:"JAMAAH_JUMAT" },
           ]
         },
         {
           judul: "📚 Kegiatan & Majelis", fields: [
-            { label:"Nama Majelis 1",   key:"namaMajelis",     idx:62 },
-            { label:"Pengasuh 1",       key:"namaPengasuh",    idx:63 },
-            { label:"Kitab Dikaji 1",   key:"kitabDikaji",     idx:64 },
-            { label:"Jamaah Rutin 1",   key:"jamaahRutin",     idx:65 },
-            { label:"Nama Majelis 2",   key:"namaMajelis2",    idx:67 },
-            { label:"Pengasuh 2",       key:"namaPengasuh2",   idx:68 },
-            { label:"Kitab Dikaji 2",   key:"kitabDikaji2",    idx:69 },
-            { label:"Jamaah Rutin 2",   key:"jamaahRutin2",    idx:70 },
+            { label:"Nama Majelis 1",   key:"namaMajelis",     apiField:"NAMA_MAJELIS" },
+            { label:"Pengasuh 1",       key:"namaPengasuh",    apiField:"NAMA_PENGASUH" },
+            { label:"Kitab Dikaji 1",   key:"kitabDikaji",     apiField:"KITAB_DIKAJI" },
+            { label:"Jamaah Rutin 1",   key:"jamaahRutin",     apiField:"JAMAAH_RUTIN" },
+            { label:"Nama Majelis 2",   key:"namaMajelis2",    apiField:"NAMA_MAJELIS_2" },
+            { label:"Pengasuh 2",       key:"namaPengasuh2",   apiField:"NAMA_PENGASUH_2" },
+            { label:"Kitab Dikaji 2",   key:"kitabDikaji2",    apiField:"KITAB_DIKAJI_2" },
+            { label:"Jamaah Rutin 2",   key:"jamaahRutin2",    apiField:"JAMAAH_RUTIN_2" },
+            { label:"Jml. Remaja",      key:"jumlahRemaja",    apiField:"JUMLAH_REMAJA" },
+            { label:"Ketua Remaja",     key:"namaKetuaRemaja", apiField:"NAMA_KETUA_REMAJA" },
+            { label:"Pengurus Remaja",  key:"pengurusRemajaLain", apiField:"PENGURUS_REMAJA_LAIN", full:true },
           ]
         },
         {
           judul: "🏗️ Fasilitas", fields: [
-            { label:"Kondisi Bangunan", key:"kondisiBgn",      idx:71 },
-            { label:"Aula / R. Rapat",  key:"aula",            idx:72 },
-            { label:"TPQ Anak",         key:"tpqAnak",         idx:74 },
-            { label:"TPQ Dewasa",       key:"tpqDewasa",       idx:75 },
-            { label:"Perpustakaan",     key:"perpustakaan",    idx:76 },
+            { label:"Kondisi Bangunan", key:"kondisiBgn",      apiField:"KONDISI_BGN" },
+            { label:"Aula / R. Rapat",  key:"aula",            apiField:"AULA" },
+            { label:"TPQ Anak",         key:"tpqAnak",         apiField:"TPQ_ANAK" },
+            { label:"TPQ Dewasa",       key:"tpqDewasa",       apiField:"TPQ_DEWASA" },
+            { label:"Perpustakaan",     key:"perpustakaan",    apiField:"PERPUSTAKAAN" },
+            { label:"Program Sosial",   key:"programSosial",   apiField:"PROGRAM_SOSIAL" },
           ]
         },
         {
           judul: "🏠 Tanah & Wakaf", fields: [
-            { label:"No. Sertif. Wakaf",key:"nomorSertifWakaf",idx:85 },
-            { label:"Tgl. Sertifikat",  key:"tglSertifWakaf",  idx:86 },
-            { label:"No. AIW",          key:"nomorAIW",        idx:87 },
-            { label:"Tgl. AIW",         key:"tglAIW",          idx:88 },
-            { label:"Nama Wakif",       key:"namaWakif",       idx:89 },
-            { label:"Nama Nadzir",      key:"namaNadzir",      idx:90 },
-            { label:"Rekening Bantuan", key:"rekening",        idx:95 },
+            { label:"Status Tanah",     key:"statusTanah",     apiField:"STATUS_TANAH",   superOnly:true },
+            { label:"No. Sertif. Wakaf",key:"nomorSertifWakaf",apiField:"NOMOR_SERTIF_WAKAF" },
+            { label:"Tgl. Sertifikat",  key:"tglSertifWakaf",  apiField:"TGL_SERTIF_WAKAF" },
+            { label:"No. AIW",          key:"nomorAIW",        apiField:"NOMOR_AIW" },
+            { label:"Tgl. AIW",         key:"tglAIW",          apiField:"TGL_AIW" },
+            { label:"Nama Wakif",       key:"namaWakif",       apiField:"NAMA_WAKIF" },
+            { label:"Nama Nadzir",      key:"namaNadzir",      apiField:"NAMA_NADZIR" },
+            { label:"Rekening Bantuan", key:"rekening",        apiField:"REKENING" },
           ]
         },
         {
-          judul: "📞 Kontak & Identitas", fields: [
-            { label:"Email",            key:"email",           idx:14 },
-            { label:"Media Sosial",     key:"medsos",          idx:15 },
-            ...(isSuper ? [
-              { label:"🔒 WA Ketua",    key:"waKetua",         idx:17, superOnly:true },
-              { label:"🔒 WA Sekretaris",key:"waSekretaris",   idx:19, superOnly:true },
-              { label:"🔒 ID SIMAS",    key:"idSimas",         idx:2,  superOnly:true },
-              { label:"🔒 Nama Masjid", key:"namaMasjid",      idx:3,  superOnly:true },
-              { label:"🔒 Alamat",      key:"alamat",          idx:10, superOnly:true },
-            ] : [])
+          judul: "📞 Kontak", fields: [
+            { label:"Email",            key:"email",           apiField:"EMAIL" },
+            { label:"Media Sosial",     key:"medsos",          apiField:"MEDSOS",         full:true },
           ]
         },
       ];
 
-      // Build initial form values dari masjid object
+      // Kumpulkan field yang bisa diedit oleh level user ini
+      const editableFields = () => {
+        const result = [];
+        SEKSI.forEach(s => s.fields.forEach(f => {
+          // showReadOnly: selalu masuk (untuk read-only display), tapi only super bisa ubah
+          if (!f.superOnly || isSuper || f.showReadOnly) result.push(f);
+        }));
+        return result;
+      };
+
+      // Build initial form values
       const buildInitial = () => {
         const init = {};
-        SEKSI.forEach(s => s.fields.forEach(f => {
+        editableFields().forEach(f => {
+          // Ambil nilai dari masjid object; koordinat & linkGmaps ada di sana
           init[f.key] = masjid[f.key] || "";
-        }));
+        });
         return init;
       };
 
       const [values,    setValues]    = useState(buildInitial);
       const [loading,   setLoading]   = useState(false);
-      const [result,    setResult]    = useState(null);  // { ok, message }
-      const [openSeksi, setOpenSeksi] = useState(0);     // index seksi aktif
-      const [showFoto,  setShowFoto]  = useState(false); // [ADMIN-05] buka FotoManagerModal
-      const [localMasjidFoto, setLocalMasjidFoto] = useState(masjid); // [ADMIN-05] data foto lokal
+      const [result,    setResult]    = useState(null);
+      const [openSeksi, setOpenSeksi] = useState(0);
+      const [showFoto,  setShowFoto]  = useState(false);
+      const [localMasjidFoto, setLocalMasjidFoto] = useState(masjid);
 
-      // Hitung field yang berubah
+      // Hitung field yang berubah (hanya yang ada apiField & berubah)
       const getChanges = () => {
         const initial = buildInitial();
         const changes = {};
-        // Map key → field name di B_IDX (Apps Script)
-        const keyToField = {
-          namaKetua:"NAMA_KETUA", namaSekretaris:"NAMA_SEKRETARIS", pengurusLain:"PENGURUS_LAIN",
-          namaImam1:"NAMA_IMAM_1", namaImam2:"NAMA_IMAM_2", namaImam3:"NAMA_IMAM_3",
-          namaMuadzin1:"NAMA_MUADZIN_1", namaMuadzin2:"NAMA_MUADZIN_2",
-          namaMarbot1:"NAMA_MARBOT_1", namaMarbot2:"NAMA_MARBOT_2",
-          namaMajelis:"NAMA_MAJELIS", namaPengasuh:"NAMA_PENGASUH",
-          kitabDikaji:"KITAB_DIKAJI", jamaahRutin:"JAMAAH_RUTIN",
-          namaMajelis2:"NAMA_MAJELIS_2", namaPengasuh2:"NAMA_PENGASUH_2",
-          kitabDikaji2:"KITAB_DIKAJI_2", jamaahRutin2:"JAMAAH_RUTIN_2",
-          kondisiBgn:"KONDISI_BGN", aula:"AULA", tpqAnak:"TPQ_ANAK",
-          tpqDewasa:"TPQ_DEWASA", perpustakaan:"PERPUSTAKAAN",
-          nomorSertifWakaf:"NOMOR_SERTIF_WAKAF", tglSertifWakaf:"TGL_SERTIF_WAKAF",
-          nomorAIW:"NOMOR_AIW", tglAIW:"TGL_AIW",
-          namaWakif:"NAMA_WAKIF", namaNadzir:"NAMA_NADZIR", rekening:"REKENING",
-          email:"EMAIL", medsos:"MEDSOS",
-          waKetua:"WA_KETUA", waSekretaris:"WA_SEKRETARIS",
-          idSimas:"ID_SIMAS", namaMasjid:"NAMA_MASJID", alamat:"ALAMAT",
-        };
-        Object.entries(values).forEach(([key, val]) => {
-          if (val.trim() !== (initial[key] || "").trim() && keyToField[key]) {
-            changes[keyToField[key]] = val.trim();
+        editableFields().forEach(f => {
+          // Skip superOnly (termasuk showReadOnly) jika bukan super
+          if (f.superOnly && !isSuper) return;
+          const newVal = (values[f.key] || "").trim();
+          const oldVal = (initial[f.key] || "").trim();
+          if (newVal !== oldVal && f.apiField) {
+            changes[f.apiField] = newVal;
           }
         });
         return changes;
@@ -1356,41 +1388,66 @@
           setResult({ ok: false, message: "Tidak ada perubahan yang dibuat." });
           return;
         }
+
+        // Validasi: ID SIMAS wajib ada untuk non-super.
+        // Super boleh menyimpan meski idSimas kosong (karena mereka mungkin sedang mengisi ID SIMAS).
+        // Dalam kasus itu, gunakan NAMA_MASJID sebagai identifier fallback di Apps Script.
+        const idSimasKosong = !masjid.idSimas || masjid.idSimas.trim() === "";
+        if (idSimasKosong && !isSuper) {
+          setResult({
+            ok: false,
+            message: "⚠️ ID SIMAS belum terisi di data ini. Minta Super Admin untuk mengisi ID SIMAS terlebih dahulu sebelum bisa menyimpan perubahan.",
+          });
+          return;
+        }
+
+        // Untuk super dengan idSimas kosong: pastikan changes mengandung ID_SIMAS baru,
+        // atau setidaknya nama masjid tersedia untuk pencarian fallback
+        if (idSimasKosong && isSuper && !changes["ID_SIMAS"]) {
+          setResult({
+            ok: false,
+            message: "⚠️ ID SIMAS masih kosong. Isi field ID SIMAS terlebih dahulu sebelum menyimpan.",
+          });
+          return;
+        }
+
         setLoading(true);
         setResult(null);
         try {
+          const payload = {
+            action:   "updateBatch",
+            token:    adminSession.token,
+            changes,
+          };
+          // Gunakan idSimas jika ada; fallback ke namaMasjid untuk super (saat pertama kali isi ID SIMAS)
+          if (!idSimasKosong) {
+            payload.idSimas = masjid.idSimas;
+          } else {
+            // Fallback: cari baris berdasarkan nama masjid (hanya super, sudah divalidasi di atas)
+            payload.namaMasjidFallback = masjid.namaMasjid;
+          }
+
           const res = await fetch(WEBAPP_URL, {
             method: "POST",
             headers: { "Content-Type": "text/plain" },
-            body: JSON.stringify({
-              action:   "updateBatch",
-              token:    adminSession.token,
-              idSimas:  masjid.idSimas,
-              changes,
-            }),
+            body: JSON.stringify(payload),
           });
           const json = await res.json();
           if (json.ok) {
             // Build updated masjid fields untuk optimistic update
             const updatedFields = {};
-            const fieldToKey = {
-              NAMA_KETUA:"namaKetua", NAMA_SEKRETARIS:"namaSekretaris", PENGURUS_LAIN:"pengurusLain",
-              NAMA_IMAM_1:"namaImam1", NAMA_IMAM_2:"namaImam2", NAMA_IMAM_3:"namaImam3",
-              NAMA_MUADZIN_1:"namaMuadzin1", NAMA_MUADZIN_2:"namaMuadzin2",
-              NAMA_MARBOT_1:"namaMarbot1", NAMA_MARBOT_2:"namaMarbot2",
-              NAMA_MAJELIS:"namaMajelis", NAMA_PENGASUH:"namaPengasuh",
-              KITAB_DIKAJI:"kitabDikaji", JAMAAH_RUTIN:"jamaahRutin",
-              NAMA_MAJELIS_2:"namaMajelis2", NAMA_PENGASUH_2:"namaPengasuh2",
-              KITAB_DIKAJI_2:"kitabDikaji2", JAMAAH_RUTIN_2:"jamaahRutin2",
-              KONDISI_BGN:"kondisiBgn", AULA:"aula", TPQ_ANAK:"tpqAnak",
-              TPQ_DEWASA:"tpqDewasa", PERPUSTAKAAN:"perpustakaan",
-              NOMOR_SERTIF_WAKAF:"nomorSertifWakaf", TGL_SERTIF_WAKAF:"tglSertifWakaf",
-              NOMOR_AIW:"nomorAIW", TGL_AIW:"tglAIW",
-              NAMA_WAKIF:"namaWakif", NAMA_NADZIR:"namaNadzir", REKENING:"rekening",
-              EMAIL:"email", MEDSOS:"medsos",
-              WA_KETUA:"waKetua", WA_SEKRETARIS:"waSekretaris",
-              ID_SIMAS:"idSimas", NAMA_MASJID:"namaMasjid", ALAMAT:"alamat",
-            };
+            const fieldToKey = {};
+            editableFields().forEach(f => { if (f.apiField) fieldToKey[f.apiField] = f.key; });
+            fieldToKey["KOORDINAT_LS"] = "koordinatLS";
+            fieldToKey["KOORDINAT_BT"] = "koordinatBT";
+            fieldToKey["LINK_GMAPS"]   = "linkGmaps";
+            fieldToKey["ALAMAT"]       = "alamat";
+            fieldToKey["TIPOLOGI"]     = "tipologi";
+            fieldToKey["AFILIASI"]     = "afiliasi";
+            fieldToKey["TAHUN_BERDIRI"]= "tahunBerdiri";
+            fieldToKey["ID_SIMAS"]     = "idSimas";
+            fieldToKey["NAMA_MASJID"]  = "namaMasjid";
+            fieldToKey["DESA"]         = "desa";
             Object.entries(changes).forEach(([field, val]) => {
               if (fieldToKey[field]) updatedFields[fieldToKey[field]] = val;
             });
@@ -1403,13 +1460,15 @@
             setResult({ ok: false, message: json.error || "Gagal menyimpan." });
           }
         } catch(e) {
-          setResult({ ok: false, message: "Gagal menghubungi server." });
+          setResult({ ok: false, message: "Gagal menghubungi server: " + e.message });
         } finally {
           setLoading(false);
         }
       };
 
       const changedCount = Object.keys(getChanges()).length;
+      // Super admin bisa menyimpan meski ID SIMAS kosong (karena bisa sedang mengisinya)
+      const noIdSimas    = (!masjid.idSimas || masjid.idSimas.trim() === "") && !isSuper;
 
       const inpStyle = {
         width:"100%", padding:"8px 11px", borderRadius:8,
@@ -1444,7 +1503,6 @@
                 </div>
               </div>
               <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                {/* [ADMIN-05] Tombol kelola foto */}
                 <button onClick={() => setShowFoto(true)} style={{
                   padding:"6px 12px", borderRadius:20,
                   background:"rgba(212,168,83,.2)", border:"1px solid rgba(212,168,83,.4)",
@@ -1457,8 +1515,20 @@
               </div>
             </div>
 
+            {/* Peringatan ID SIMAS kosong */}
+            {(!masjid.idSimas || masjid.idSimas.trim() === "") && (
+              <div style={{ background: isSuper ? "#fef3c7" : "#fef3c7", borderBottom:"1px solid #fde68a",
+                padding:"9px 20px", fontSize:12, color:"#92400e", display:"flex", alignItems:"flex-start", gap:6 }}>
+                <span style={{ fontSize:14 }}>⚠️</span>
+                {isSuper
+                  ? <span><strong>ID SIMAS belum terisi.</strong> Isi field <strong>ID SIMAS</strong> di seksi "📍 Lokasi & Identitas" lalu simpan untuk mengaktifkan pencarian berbasis ID.</span>
+                  : <span><strong>ID SIMAS belum terisi.</strong> Data bisa dilihat, tapi <strong>tidak bisa disimpan</strong> sampai Super Admin mengisi ID SIMAS terlebih dahulu.</span>
+                }
+              </div>
+            )}
+
             {/* Info perubahan */}
-            {changedCount > 0 && (
+            {changedCount > 0 && !noIdSimas && (
               <div style={{ background:"#fffbeb", borderBottom:"1px solid #fde68a",
                 padding:"8px 20px", fontSize:12, color:"#92400e" }}>
                 ✏️ {changedCount} field diubah — belum disimpan
@@ -1467,38 +1537,68 @@
 
             {/* Seksi accordion */}
             <div style={{ maxHeight:"60vh", overflowY:"auto" }}>
-              {SEKSI.map((seksi, si) => (
-                <div key={si} style={{ borderBottom:"1px solid #e2d9c8" }}>
-                  <button onClick={() => setOpenSeksi(openSeksi === si ? -1 : si)}
-                    style={{ width:"100%", padding:"12px 20px", background: openSeksi===si ? "#f8f4ed" : "white",
-                      border:"none", cursor:"pointer", textAlign:"left", fontSize:13,
-                      fontWeight:600, color:"#1B4332", fontFamily:"'DM Sans',sans-serif",
-                      display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                    {seksi.judul}
-                    <span style={{ fontSize:11, color:"#9ca3af" }}>{openSeksi===si ? "▲" : "▼"}</span>
-                  </button>
-                  {openSeksi === si && (
-                    <div style={{ padding:"12px 20px 16px", display:"grid",
-                      gridTemplateColumns:"1fr 1fr", gap:"10px 16px" }}>
-                      {seksi.fields.map(f => (
-                        <div key={f.key} style={{ gridColumn: f.key==="pengurusLain" ? "1/-1" : "auto" }}>
-                          <label style={{ fontSize:11, color: f.superOnly ? "#b45309" : "#6b7280",
-                            fontWeight:500, display:"block", marginBottom:4 }}>{f.label}</label>
-                          <input
-                            value={values[f.key] || ""}
-                            onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
-                            style={{
-                              ...inpStyle,
-                              borderColor: values[f.key] !== (masjid[f.key] || "") ? "#D4A853" : "#e2d9c8",
-                              background: f.superOnly ? "#fffbeb" : "white",
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+              {SEKSI.map((seksi, si) => {
+                // visibleFields: tampilkan semua field yang editable ATAU showReadOnly
+                const visibleFields = seksi.fields.filter(f =>
+                  !f.superOnly || isSuper || f.showReadOnly
+                );
+                if (visibleFields.length === 0) return null;
+                return (
+                  <div key={si} style={{ borderBottom:"1px solid #e2d9c8" }}>
+                    <button onClick={() => setOpenSeksi(openSeksi === si ? -1 : si)}
+                      style={{ width:"100%", padding:"12px 20px", background: openSeksi===si ? "#f8f4ed" : "white",
+                        border:"none", cursor:"pointer", textAlign:"left", fontSize:13,
+                        fontWeight:600, color:"#1B4332", fontFamily:"'DM Sans',sans-serif",
+                        display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      {seksi.judul}
+                      <span style={{ fontSize:11, color:"#9ca3af" }}>{openSeksi===si ? "▲" : "▼"}</span>
+                    </button>
+                    {openSeksi === si && (
+                      <div style={{ padding:"12px 20px 16px", display:"grid",
+                        gridTemplateColumns:"1fr 1fr", gap:"10px 16px" }}>
+                        {visibleFields.map(f => {
+                          // Tentukan apakah field ini read-only untuk user saat ini
+                          const isReadOnly = f.superOnly && !isSuper;
+                          return (
+                            <div key={f.key} style={{ gridColumn: f.full ? "1/-1" : "auto" }}>
+                              <label style={{ fontSize:11,
+                                color: f.superOnly ? (isSuper ? "#b45309" : "#6b7280") : "#6b7280",
+                                fontWeight:500, display:"block", marginBottom:4 }}>
+                                {f.label}
+                                {f.superOnly && isSuper && <span style={{ marginLeft:4, fontSize:10, color:"#d97706" }}>👑 Super</span>}
+                                {isReadOnly && <span style={{ marginLeft:4, fontSize:10, color:"#9ca3af" }}>🔒 Hanya Super</span>}
+                              </label>
+                              {isReadOnly ? (
+                                /* Read-only display untuk non-super */
+                                <div style={{
+                                  width:"100%", padding:"8px 11px", borderRadius:8,
+                                  border:"1.5px solid #e2d9c8", fontSize:13,
+                                  background:"#f3f4f6", color: (masjid[f.key] || "") ? "#374151" : "#c0c4cc",
+                                  fontFamily:"'DM Sans',sans-serif", minHeight:36,
+                                  wordBreak:"break-all",
+                                }}>
+                                  {masjid[f.key] || <span style={{ fontStyle:"italic", color:"#c0c4cc" }}>—</span>}
+                                </div>
+                              ) : (
+                                <input
+                                  value={values[f.key] !== undefined ? values[f.key] : ""}
+                                  onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                                  placeholder={f.placeholder || ""}
+                                  style={{
+                                    ...inpStyle,
+                                    borderColor: (values[f.key] || "") !== (masjid[f.key] || "") ? "#D4A853" : "#e2d9c8",
+                                    background: f.superOnly ? "#fffbeb" : "white",
+                                  }}
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Result message */}
@@ -1520,22 +1620,22 @@
                 background:"white", color:"#6b7280", cursor:"pointer",
                 fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif",
               }}>Batal</button>
-              <button onClick={handleSave} disabled={loading || changedCount === 0} style={{
+              <button onClick={handleSave} disabled={loading || changedCount === 0 || noIdSimas} style={{
                 flex:2, padding:"11px", borderRadius:10, border:"none",
-                background: changedCount > 0 ? "#1B4332" : "#e2d9c8",
-                color:      changedCount > 0 ? "white"   : "#9ca3af",
-                cursor:     loading || changedCount === 0 ? "not-allowed" : "pointer",
+                background: (changedCount > 0 && !noIdSimas) ? "#1B4332" : "#e2d9c8",
+                color:      (changedCount > 0 && !noIdSimas) ? "white"   : "#9ca3af",
+                cursor: (loading || changedCount === 0 || noIdSimas) ? "not-allowed" : "pointer",
                 fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif",
                 transition:"all .2s",
               }}>
-                {loading ? "⏳ Menyimpan..." : changedCount > 0 ? `💾 Simpan (${changedCount} perubahan)` : "Tidak ada perubahan"}
+                {loading ? "⏳ Menyimpan..." : noIdSimas ? "⚠️ ID SIMAS belum ada" : changedCount > 0 ? `💾 Simpan (${changedCount} perubahan)` : "Tidak ada perubahan"}
               </button>
             </div>
 
           </div>
         </div>
 
-        {/* [ADMIN-05] FotoManagerModal — tampil di atas EditMasjidModal */}
+        {/* [ADMIN-05] FotoManagerModal */}
         {showFoto && (
           <FotoManagerModal
             masjid={localMasjidFoto}
