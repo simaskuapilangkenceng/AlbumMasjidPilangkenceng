@@ -267,14 +267,22 @@
         jumlahImam:         cv(row, IDX.JUMLAH_IMAM),
         namaImamGabung:     gabung(row, [IDX.NAMA_IMAM_1, IDX.NAMA_IMAM_2, IDX.NAMA_IMAM_3,
                                          IDX.NAMA_IMAM_4, IDX.NAMA_IMAM_5, IDX.NAMA_IMAM_LAIN]),
+        // Field individual untuk EditMasjidModal
+        namaImam1:          cv(row, IDX.NAMA_IMAM_1),
+        namaImam2:          cv(row, IDX.NAMA_IMAM_2),
+        namaImam3:          cv(row, IDX.NAMA_IMAM_3),
         jumlahMuadzin:      cv(row, IDX.JUMLAH_MUADZIN),
         namaMuadzinGabung:  gabung(row, [IDX.NAMA_MUADZIN_1, IDX.NAMA_MUADZIN_2, IDX.NAMA_MUADZIN_3,
                                          IDX.NAMA_MUADZIN_4, IDX.NAMA_MUADZIN_5, IDX.NAMA_MUADZIN_LAIN]),
+        namaMuadzin1:       cv(row, IDX.NAMA_MUADZIN_1),
+        namaMuadzin2:       cv(row, IDX.NAMA_MUADZIN_2),
         jumlahKhotib:       cv(row, IDX.JUMLAH_KHOTIB),
         namaKhotibGabung:   gabung(row, [IDX.NAMA_KHOTIB_1, IDX.NAMA_KHOTIB_2,
                                          IDX.NAMA_KHOTIB_3, IDX.NAMA_KHOTIB_LAIN]),
         jumlahMarbot:       cv(row, IDX.JUMLAH_MARBOT),
         namaMarbotGabung:   gabung(row, [IDX.NAMA_MARBOT_1, IDX.NAMA_MARBOT_2, IDX.NAMA_MARBOT_LAIN]),
+        namaMarbot1:        cv(row, IDX.NAMA_MARBOT_1),
+        namaMarbot2:        cv(row, IDX.NAMA_MARBOT_2),
         jumlahRemaja:       cv(row, IDX.JUMLAH_REMAJA),
         namaKetuaRemaja:    cv(row, IDX.NAMA_KETUA_REMAJA),
         pengurusRemajaLain: cv(row, IDX.PENGURUS_REMAJA_LAIN),
@@ -308,6 +316,8 @@
         wakafProduktif:     cv(row, IDX.WAKAF_PRODUKTIF),
         usahaProduktif:     cv(row, IDX.USAHA_PRODUKTIF),
         rekening:           cv(row, IDX.REKENING),
+        waKetua:            "",  // kosong di publik, diisi admin super saja
+        waSekretaris:       "",  // kosong di publik
         waBantuan:          cv(row, IDX.WA_BANTUAN),
         namaSurveyor:       cv(row, IDX.NAMA_SURVEYOR),
         folderUrl:          cv(row, IDX.FOLDER_URL),
@@ -321,8 +331,8 @@
         urlFotoKiblat:      fixImgUrls(cv(row, IDX.URL_FOTO_SERTIF_KIBLAT)),
         jumlahFoto:         cv(row, IDX.JUMLAH_FOTO),
         statusProses:       cv(row, IDX.STATUS_PROSES),
-        // BUG FIX: ambil dari urlFotoDepan yang sudah dikonversi, bukan dari cv() mentah
-        get fotoUtama() { return this.urlFotoDepan ? this.urlFotoDepan.split(",")[0].trim() : ""; },
+        // Field turunan: ambil foto pertama dari urlFotoDepan
+        fotoUtama: (() => { const u = fixImgUrls(cv(row, IDX.URL_FOTO_DEPAN)); return u ? u.split(",")[0].trim() : ""; })(),
       };
     };
 
