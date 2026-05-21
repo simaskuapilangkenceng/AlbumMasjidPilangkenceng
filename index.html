@@ -55,7 +55,7 @@
     // ════════════════════════════════════════════════════════════
     //  [ADMIN-03] URL Web App Apps Script — isi setelah deploy
     // ════════════════════════════════════════════════════════════
-    const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwTnvKfyXA35hIYRTipgCMmweEroKB1aETkwksCpG5Tm7hbR19DywlYIpwokKFEAMxOpw/exec";
+    const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwOZNCFEFt9qSRiBAWeTT1EkBj1m_XveEh9qelt4q0KOT-h6A5bkhDnTlPv6cUNRSolwA/exec";
 
     // ════════════════════════════════════════════════════════════
     //  MAPPING INDEX KOLOM — v3.9 (116 kolom, index 0–115)
@@ -912,6 +912,327 @@
     }
 
     // ════════════════════════════════════════════════════════════
+    //  [ADMIN-05] KOMPONEN: FotoManagerModal
+    //  Upload, lihat, dan hapus foto per kategori
+    // ════════════════════════════════════════════════════════════
+    const FOTO_KATEGORI = [
+      { key:"depan",        label:"Tampak Depan",      icon:"🏛️" },
+      { key:"dalam",        label:"Dalam Masjid",      icon:"🕌" },
+      { key:"wudhu",        label:"Tempat Wudhu",      icon:"💧" },
+      { key:"wc",           label:"Kamar Mandi/WC",    icon:"🚿" },
+      { key:"lain",         label:"Foto Lainnya",      icon:"📸" },
+      { key:"sertifWakaf",  label:"Sertifikat Wakaf",  icon:"📄" },
+      { key:"fotoAIW",      label:"Akta Ikrar Wakaf",  icon:"📜" },
+      { key:"sertifKiblat", label:"Sertif. Kiblat",    icon:"🧭" },
+    ];
+
+    // Peta key komponen → properti masjid (urlFoto*)
+    const FOTO_KEY_TO_PROP = {
+      depan:        "urlFotoDepan",
+      dalam:        "urlFotoDalam",
+      wudhu:        "urlFotoWudhu",
+      wc:           "urlFotoWC",
+      lain:         "urlFotoLain",
+      sertifWakaf:  "urlFotoSertifWakaf",
+      fotoAIW:      "urlFotoAIW",
+      sertifKiblat: "urlFotoKiblat",
+    };
+
+    // Konversi URL Drive view→thumbnail (sama seperti fixImgUrl di atas)
+    const toThumb = (url) => {
+      if (!url) return "";
+      const m1 = url.match(/\/file\/d\/([^\/\?]+)/);
+      if (m1) return `https://drive.google.com/thumbnail?id=${m1[1]}&sz=w300`;
+      const m2 = url.match(/[?&]id=([^&]+)/);
+      if (m2) return `https://drive.google.com/thumbnail?id=${m2[1]}&sz=w300`;
+      return url;
+    };
+    const toViewUrl = (url) => {
+      const m = url.match(/[?&]id=([^&]+)/);
+      return m ? `https://drive.google.com/file/d/${m[1]}/view` : url;
+    };
+
+    function FotoManagerModal({ masjid, adminSession, onClose, onFotoUpdated }) {
+      const [activeKat,   setActiveKat]   = useState("depan");
+      const [localUrls,   setLocalUrls]   = useState(() => {
+        // Buat salinan URL semua kategori dari props masjid
+        const init = {};
+        FOTO_KATEGORI.forEach(k => {
+          init[k.key] = (masjid[FOTO_KEY_TO_PROP[k.key]] || "")
+            .split(",").map(u => u.trim()).filter(Boolean);
+        });
+        return init;
+      });
+      const [uploading,   setUploading]   = useState(false);
+      const [deleting,    setDeleting]    = useState(null); // URL yang sedang dihapus
+      const [toast,       setToast]       = useState(null); // { ok, text }
+      const fileInputRef  = useRef(null);
+
+      const showToast = (ok, text) => {
+        setToast({ ok, text });
+        setTimeout(() => setToast(null), 3500);
+      };
+
+      // ── Upload handler ──────────────────────────────────────
+      const handleFileChange = async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+        setUploading(true);
+
+        for (const file of files) {
+          // Validasi tipe & ukuran
+          if (!file.type.startsWith("image/")) {
+            showToast(false, `${file.name}: hanya file gambar yang diizinkan.`);
+            continue;
+          }
+          if (file.size > 5 * 1024 * 1024) {
+            showToast(false, `${file.name}: ukuran melebihi 5MB.`);
+            continue;
+          }
+
+          // Baca sebagai base64
+          const base64 = await new Promise((res, rej) => {
+            const reader = new FileReader();
+            reader.onload  = () => res(reader.result.split(",")[1]);
+            reader.onerror = () => rej(new Error("Gagal baca file"));
+            reader.readAsDataURL(file);
+          }).catch(err => { showToast(false, err.message); return null; });
+
+          if (!base64) continue;
+
+          try {
+            const resp = await fetch(WEBAPP_URL, {
+              method:  "POST",
+              headers: { "Content-Type": "text/plain" },
+              body:    JSON.stringify({
+                action:   "uploadFoto",
+                token:    adminSession.token,
+                idSimas:  masjid.idSimas,
+                kategori: activeKat,
+                fileName: file.name,
+                mimeType: file.type,
+                base64,
+                mode:     "append",
+              }),
+            });
+            const json = await resp.json();
+            if (json.ok) {
+              // Update state lokal dengan URL baru
+              setLocalUrls(prev => ({
+                ...prev,
+                [activeKat]: [...prev[activeKat], json.fileUrl],
+              }));
+              showToast(true, `${file.name} berhasil diupload.`);
+              if (onFotoUpdated) onFotoUpdated(activeKat, json.updatedUrl);
+            } else {
+              showToast(false, json.error || "Upload gagal.");
+            }
+          } catch(err) {
+            showToast(false, "Gagal menghubungi server.");
+          }
+        }
+
+        setUploading(false);
+        // Reset file input agar file yang sama bisa dipilih lagi
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      };
+
+      // ── Delete handler ──────────────────────────────────────
+      const handleDelete = async (url) => {
+        if (!window.confirm("Hapus foto ini dari Drive & Spreadsheet?")) return;
+        setDeleting(url);
+        try {
+          const resp = await fetch(WEBAPP_URL, {
+            method:  "POST",
+            headers: { "Content-Type": "text/plain" },
+            body:    JSON.stringify({
+              action:   "deleteFoto",
+              token:    adminSession.token,
+              idSimas:  masjid.idSimas,
+              kategori: activeKat,
+              fileUrl:  url,
+            }),
+          });
+          const json = await resp.json();
+          if (json.ok) {
+            setLocalUrls(prev => ({
+              ...prev,
+              [activeKat]: prev[activeKat].filter(u => u !== url),
+            }));
+            showToast(true, "Foto berhasil dihapus.");
+            if (onFotoUpdated) onFotoUpdated(activeKat, json.updatedUrl);
+          } else {
+            showToast(false, json.error || "Hapus gagal.");
+          }
+        } catch(err) {
+          showToast(false, "Gagal menghubungi server.");
+        } finally {
+          setDeleting(null);
+        }
+      };
+
+      const activeUrls = localUrls[activeKat] || [];
+      const activeInfo = FOTO_KATEGORI.find(k => k.key === activeKat);
+
+      return (
+        <div onClick={e => e.stopPropagation()} style={{
+          position:"fixed", inset:0, zIndex:2200,
+          background:"rgba(0,0,0,.65)", backdropFilter:"blur(4px)",
+          display:"flex", alignItems:"flex-start", justifyContent:"center",
+          padding:"16px", overflowY:"auto",
+        }}>
+          <div style={{
+            width:"100%", maxWidth:680, background:"#FAFAF7",
+            borderRadius:18, overflow:"hidden", margin:"auto",
+            boxShadow:"0 32px 80px rgba(0,0,0,.3)", animation:"fadeIn .2s ease",
+          }}>
+
+            {/* Header */}
+            <div style={{ background:"#1B4332", padding:"16px 20px",
+              display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <div>
+                <div style={{ fontFamily:"'Playfair Display',serif",
+                  fontSize:16, fontWeight:700, color:"white" }}>📷 Kelola Foto</div>
+                <div style={{ fontSize:11, color:"rgba(212,168,83,.85)", marginTop:2 }}>
+                  {masjid.namaMasjid}
+                </div>
+              </div>
+              <button onClick={onClose} style={{ background:"rgba(255,255,255,.12)",
+                border:"none", color:"white", width:32, height:32, borderRadius:"50%",
+                cursor:"pointer", fontSize:16 }}>✕</button>
+            </div>
+
+            {/* Tab kategori — scroll horizontal di mobile */}
+            <div style={{ display:"flex", overflowX:"auto", borderBottom:"2px solid #e2d9c8",
+              background:"white", padding:"0 4px", gap:2 }}>
+              {FOTO_KATEGORI.map(k => {
+                const count = localUrls[k.key]?.length || 0;
+                return (
+                  <button key={k.key} onClick={() => setActiveKat(k.key)} style={{
+                    flexShrink:0, padding:"10px 12px", border:"none", cursor:"pointer",
+                    fontSize:12, fontWeight:600, fontFamily:"'DM Sans',sans-serif",
+                    background:"none", whiteSpace:"nowrap",
+                    color:      activeKat === k.key ? "#1B4332" : "#9ca3af",
+                    borderBottom: activeKat === k.key ? "2px solid #1B4332" : "2px solid transparent",
+                    marginBottom: -2,
+                  }}>
+                    {k.icon} {k.label}
+                    {count > 0 && (
+                      <span style={{ marginLeft:5, background:"#1B4332", color:"white",
+                        fontSize:10, fontWeight:700, borderRadius:20, padding:"1px 6px" }}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Area konten */}
+            <div style={{ padding:"16px 20px", minHeight:280 }}>
+
+              {/* Tombol upload */}
+              <div style={{ marginBottom:16 }}>
+                <input
+                  ref={fileInputRef}
+                  type="file" accept="image/*" multiple
+                  onChange={handleFileChange}
+                  style={{ display:"none" }}
+                  id="foto-upload-input"
+                />
+                <label htmlFor="foto-upload-input" style={{
+                  display:"inline-flex", alignItems:"center", gap:8,
+                  padding:"10px 20px", borderRadius:10,
+                  background: uploading ? "#9ca3af" : "#1B4332",
+                  color:"white", cursor: uploading ? "not-allowed" : "pointer",
+                  fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif",
+                  pointerEvents: uploading ? "none" : "auto",
+                }}>
+                  {uploading ? "⏳ Mengupload..." : `⬆️ Upload Foto ${activeInfo?.label}`}
+                </label>
+                <span style={{ marginLeft:12, fontSize:11, color:"#9ca3af" }}>
+                  JPG/PNG/WebP · maks 5MB · bisa pilih beberapa sekaligus
+                </span>
+              </div>
+
+              {/* Grid foto existing */}
+              {activeUrls.length === 0 ? (
+                <div style={{ textAlign:"center", padding:"40px 20px",
+                  color:"#9ca3af", fontSize:13, background:"#f8f4ed",
+                  borderRadius:12, border:"2px dashed #e2d9c8" }}>
+                  {activeInfo?.icon} Belum ada foto {activeInfo?.label}.<br/>
+                  <span style={{ fontSize:11 }}>Klik tombol Upload di atas untuk menambahkan.</span>
+                </div>
+              ) : (
+                <div style={{ display:"grid",
+                  gridTemplateColumns:"repeat(auto-fill, minmax(140px, 1fr))",
+                  gap:10 }}>
+                  {activeUrls.map((url, i) => {
+                    const isDel = deleting === url;
+                    return (
+                      <div key={i} style={{ position:"relative", borderRadius:10, overflow:"hidden",
+                        border:"1px solid #e2d9c8", background:"#f8f4ed" }}>
+                        <a href={toViewUrl(url)} target="_blank" rel="noreferrer">
+                          <img src={toThumb(url)} alt={`foto ${i+1}`}
+                            style={{ width:"100%", height:110, objectFit:"cover", display:"block" }}
+                            onError={e => { e.target.src=""; e.target.style.background="#e2d9c8"; }}
+                          />
+                        </a>
+                        {/* Tombol hapus */}
+                        <button
+                          onClick={() => handleDelete(url)}
+                          disabled={isDel}
+                          title="Hapus foto ini"
+                          style={{
+                            position:"absolute", top:5, right:5,
+                            width:24, height:24, borderRadius:"50%",
+                            background: isDel ? "rgba(100,100,100,.7)" : "rgba(220,38,38,.85)",
+                            border:"none", color:"white", cursor: isDel ? "not-allowed" : "pointer",
+                            fontSize:12, fontWeight:700, display:"flex",
+                            alignItems:"center", justifyContent:"center",
+                            boxShadow:"0 1px 4px rgba(0,0,0,.3)",
+                          }}>
+                          {isDel ? "⏳" : "✕"}
+                        </button>
+                        <div style={{ padding:"4px 6px", fontSize:10, color:"#9ca3af",
+                          textAlign:"center" }}>foto {i+1}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Toast notifikasi */}
+            {toast && (
+              <div style={{
+                margin:"0 20px 16px",
+                padding:"10px 14px", borderRadius:8, fontSize:13,
+                background: toast.ok ? "#dcfce7" : "#fee2e2",
+                color:      toast.ok ? "#15803d" : "#b91c1c",
+                animation:"fadeIn .2s ease",
+              }}>
+                {toast.ok ? "✅ " : "⚠️ "}{toast.text}
+              </div>
+            )}
+
+            {/* Footer */}
+            <div style={{ padding:"12px 20px", borderTop:"1px solid #e2d9c8",
+              display:"flex", justifyContent:"flex-end" }}>
+              <button onClick={onClose} style={{
+                padding:"9px 24px", borderRadius:10,
+                background:"#1B4332", color:"white", border:"none",
+                cursor:"pointer", fontSize:13, fontWeight:600,
+                fontFamily:"'DM Sans',sans-serif",
+              }}>Selesai</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+
+    // ════════════════════════════════════════════════════════════
     //  [ADMIN-04] KOMPONEN: EditMasjidModal
     //  Form edit data masjid — kirim ke Apps Script via POST
     // ════════════════════════════════════════════════════════════
@@ -995,6 +1316,8 @@
       const [loading,   setLoading]   = useState(false);
       const [result,    setResult]    = useState(null);  // { ok, message }
       const [openSeksi, setOpenSeksi] = useState(0);     // index seksi aktif
+      const [showFoto,  setShowFoto]  = useState(false); // [ADMIN-05] buka FotoManagerModal
+      const [localMasjidFoto, setLocalMasjidFoto] = useState(masjid); // [ADMIN-05] data foto lokal
 
       // Hitung field yang berubah
       const getChanges = () => {
@@ -1096,6 +1419,7 @@
       };
 
       return (
+        <>
         <div onClick={e => e.stopPropagation()} style={{
           position:"fixed", inset:0, zIndex:2100,
           background:"rgba(0,0,0,.6)", backdropFilter:"blur(4px)",
@@ -1119,9 +1443,18 @@
                   {masjid.namaMasjid} · {adminSession?.nama}
                 </div>
               </div>
-              <button onClick={onClose} style={{ background:"rgba(255,255,255,.12)",
-                border:"none", color:"white", width:32, height:32, borderRadius:"50%",
-                cursor:"pointer", fontSize:16 }}>✕</button>
+              <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                {/* [ADMIN-05] Tombol kelola foto */}
+                <button onClick={() => setShowFoto(true)} style={{
+                  padding:"6px 12px", borderRadius:20,
+                  background:"rgba(212,168,83,.2)", border:"1px solid rgba(212,168,83,.4)",
+                  color:"#D4A853", cursor:"pointer", fontSize:11, fontWeight:600,
+                  fontFamily:"'DM Sans',sans-serif",
+                }}>📷 Kelola Foto</button>
+                <button onClick={onClose} style={{ background:"rgba(255,255,255,.12)",
+                  border:"none", color:"white", width:32, height:32, borderRadius:"50%",
+                  cursor:"pointer", fontSize:16 }}>✕</button>
+              </div>
             </div>
 
             {/* Info perubahan */}
@@ -1201,6 +1534,28 @@
 
           </div>
         </div>
+
+        {/* [ADMIN-05] FotoManagerModal — tampil di atas EditMasjidModal */}
+        {showFoto && (
+          <FotoManagerModal
+            masjid={localMasjidFoto}
+            adminSession={adminSession}
+            onClose={() => setShowFoto(false)}
+            onFotoUpdated={(kategori, updatedUrl) => {
+              const propKey = {
+                depan:"urlFotoDepan", dalam:"urlFotoDalam", wudhu:"urlFotoWudhu",
+                wc:"urlFotoWC", lain:"urlFotoLain", sertifWakaf:"urlFotoSertifWakaf",
+                fotoAIW:"urlFotoAIW", sertifKiblat:"urlFotoKiblat",
+              }[kategori];
+              if (propKey) {
+                const updated = { ...localMasjidFoto, [propKey]: updatedUrl };
+                setLocalMasjidFoto(updated);
+                if (onSaved) onSaved({ [propKey]: updatedUrl });
+              }
+            }}
+          />
+        )}
+        </>
       );
     }
 
