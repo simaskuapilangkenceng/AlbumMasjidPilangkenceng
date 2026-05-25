@@ -210,10 +210,14 @@
     const fixImgUrls = (urlString) =>
       (urlString || "").split(",").map(u => fixImgUrl(u.trim())).filter(Boolean).join(",");
 
-    // Parse koordinat dari dua kolom terpisah (KOORDINAT_LS & KOORDINAT_BT) → [lat, lng]
-    const parseLatLng = (ls, bt) => {
-      const lat = parseFloat(ls);
-      const lng = parseFloat(bt);
+    // Parse koordinat dari 1 kolom gabungan "lat, lng" (paste dari Google Maps)
+    // Kolom M (KOORDINAT_BT) sekarang berisi: "-7.6234, 111.5123"
+    const parseLatLng = (gabungan) => {
+      if (!gabungan) return null;
+      const parts = String(gabungan).split(",");
+      if (parts.length < 2) return null;
+      const lat = parseFloat(parts[0]);
+      const lng = parseFloat(parts[1]);
       if (isNaN(lat) || isNaN(lng)) return null;
       if (lat < -8.5 || lat > -6.5 || lng < 110.5 || lng > 112.5) return null;
       // Lintang Selatan = nilai negatif; jika input positif, negasikan
@@ -226,11 +230,14 @@
     //  🔒 waKetua, waSekretaris, waKetuaRemaja TIDAK disertakan
     // ════════════════════════════════════════════════════════════
     const rowToMasjid = (row, id) => {
-      const ls = cv(row, IDX.KOORDINAT_LS);
-      const bt = cv(row, IDX.KOORDINAT_BT);
-      const latLng = parseLatLng(ls, bt);
-      // Koordinat gabungan untuk tampil & cetak
-      const koordinatGabung = ls && bt ? `LS: ${ls}  |  BT: ${bt}` : "";
+      // Kolom M (KOORDINAT_BT) sekarang berisi koordinat gabungan "lat, lng"
+      const koordinatRaw = cv(row, IDX.KOORDINAT_BT);
+      const latLng = parseLatLng(koordinatRaw);
+      // Pisahkan LS dan BT dari nilai gabungan untuk tampilan
+      const _parts = koordinatRaw ? koordinatRaw.split(",") : [];
+      const ls = _parts.length >= 2 ? _parts[0].trim() : "";
+      const bt = _parts.length >= 2 ? _parts[1].trim() : "";
+      const koordinatGabung = ls && bt ? `LS: ${ls}  |  BT: ${bt}` : (koordinatRaw || "");
       return {
         id,
         latLng,
@@ -249,6 +256,7 @@
         linkGmaps:          cv(row, IDX.LINK_GMAPS),
         koordinatBT:        bt,
         koordinatLS:        ls,
+        koordinatRaw:       koordinatRaw, // nilai asli untuk field edit
         email:              cv(row, IDX.EMAIL),
         medsos:             cv(row, IDX.MEDSOS),
         namaKetua:          cv(row, IDX.NAMA_KETUA),
@@ -1272,8 +1280,7 @@
             { label:"Tipologi",         key:"tipologi",        apiField:"TIPOLOGI" },
             { label:"Afiliasi",         key:"afiliasi",        apiField:"AFILIASI" },
             { label:"Tahun Berdiri",    key:"tahunBerdiri",    apiField:"TAHUN_BERDIRI" },
-            { label:"Koordinat LS",     key:"koordinatLS",     apiField:"KOORDINAT_LS",   placeholder:"-7.xxxx" },
-            { label:"Koordinat BT",     key:"koordinatBT",     apiField:"KOORDINAT_BT",   placeholder:"111.xxxx" },
+            { label:"Koordinat GPS",     key:"koordinatRaw",    apiField:"KOORDINAT_BT",   full:true, placeholder:"-7.6234, 111.5123  (paste dari Google Maps)" },
             { label:"Link Google Maps", key:"linkGmaps",       apiField:"LINK_GMAPS",     full:true, placeholder:"https://maps.google.com/..." },
           ]
         },
@@ -1442,9 +1449,9 @@
           if (!idSimasKosong) {
             payload.idSimas = masjid.idSimas;
           } else {
-            // Fallback: cari baris berdasarkan nama masjid (semua level bisa simpan tanpa ID SIMAS)
+            // Fallback: cari baris berdasarkan nama + desa (agar tidak ambigu jika nama duplikat)
             payload.namaMasjidFallback = masjid.namaMasjid;
-            payload.desaFallback = masjid.desa;
+            payload.desaFallback       = masjid.desa || "";
           }
 
           const res = await fetch(WEBAPP_URL, {
@@ -1458,8 +1465,7 @@
             const updatedFields = {};
             const fieldToKey = {};
             editableFields().forEach(f => { if (f.apiField) fieldToKey[f.apiField] = f.key; });
-            fieldToKey["KOORDINAT_LS"] = "koordinatLS";
-            fieldToKey["KOORDINAT_BT"] = "koordinatBT";
+            fieldToKey["KOORDINAT_BT"] = "koordinatRaw";
             fieldToKey["LINK_GMAPS"]   = "linkGmaps";
             fieldToKey["ALAMAT"]       = "alamat";
             fieldToKey["TIPOLOGI"]     = "tipologi";
@@ -1883,7 +1889,7 @@
 
     // ════════════════════════════════════════════════════════════
     //  TAB PETA (Leaflet)
-    //  Koordinat v3.9: KOORDINAT_BT & KOORDINAT_LS sudah terpisah
+    //  Koordinat v4.6: KOORDINAT_BT (kolom M) berisi gabungan "lat, lng"
     // ════════════════════════════════════════════════════════════
     function TabPeta({ data, onSelect }) {
       const mapRef     = useRef(null);
