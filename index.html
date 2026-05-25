@@ -1444,6 +1444,7 @@
           } else {
             // Fallback: cari baris berdasarkan nama masjid (semua level bisa simpan tanpa ID SIMAS)
             payload.namaMasjidFallback = masjid.namaMasjid;
+            payload.desaFallback = masjid.desa;
           }
 
           const res = await fetch(WEBAPP_URL, {
