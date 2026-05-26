@@ -1847,12 +1847,28 @@
     // ════════════════════════════════════════════════════════════
     //  TAB ALBUM
     // ════════════════════════════════════════════════════════════
+    const SURVEYOR_LIST = [
+      "AHSANUL MUAHID, S.Ag",
+      "M ROZIF ABDULLOH,S.H.i",
+      "ZULAICHAH",
+      "MIFTAHUL ANWAR, A.Md",
+      "NUR ISMAWATI",
+      "SITI MUBAROKAH",
+      "FATCHUL AZIZ",
+      "MOH CLISON",
+      "M. KHOIRUL MUNTOHA AGIL, S.Ag",
+      "MUCHARROM",
+      "ZAINAL ABIDIN",
+      "SITI ZULAIKA, S.H.I",
+    ];
+
     function TabAlbum({ data, loading, error, onSelect }) {
-      const [search,        setSearch]        = useState("");
-      const [filterDesa,    setFilterDesa]    = useState("");
-      const [filterKlas,    setFilterKlas]    = useState("");
-      const [filterKondisi, setFilterKondisi] = useState("");
-      const [showFilter,    setShowFilter]    = useState(false);
+      const [search,          setSearch]          = useState("");
+      const [filterDesa,      setFilterDesa]      = useState("");
+      const [filterKlas,      setFilterKlas]      = useState("");
+      const [filterKondisi,   setFilterKondisi]   = useState("");
+      const [filterSurveyor,  setFilterSurveyor]  = useState("");
+      const [showFilter,      setShowFilter]      = useState(false);
 
       const desaList    = useMemo(() => [...new Set(data.map(m => m.desa).filter(Boolean))].sort(), [data]);
       const klasList    = useMemo(() => [...new Set(data.map(m => m.lokasiSurvey).filter(Boolean))].sort(), [data]);
@@ -1863,14 +1879,15 @@
         if (q && !m.namaMasjid.toLowerCase().includes(q)
                && !m.desa.toLowerCase().includes(q)
                && !m.idSimas.toLowerCase().includes(q)) return false;
-        if (filterDesa    && m.desa         !== filterDesa)    return false;
-        if (filterKlas    && m.lokasiSurvey !== filterKlas)    return false;
-        if (filterKondisi && m.kondisiBgn   !== filterKondisi) return false;
+        if (filterDesa      && m.desa          !== filterDesa)     return false;
+        if (filterKlas      && m.lokasiSurvey  !== filterKlas)     return false;
+        if (filterKondisi   && m.kondisiBgn    !== filterKondisi)  return false;
+        if (filterSurveyor  && (m.namaSurveyor || "").trim().toUpperCase() !== filterSurveyor.toUpperCase()) return false;
         return true;
-      }), [data, search, filterDesa, filterKlas, filterKondisi]);
+      }), [data, search, filterDesa, filterKlas, filterKondisi, filterSurveyor]);
 
-      const af = [filterDesa, filterKlas, filterKondisi].filter(Boolean).length;
-      const reset = () => { setSearch(""); setFilterDesa(""); setFilterKlas(""); setFilterKondisi(""); };
+      const af = [filterDesa, filterKlas, filterKondisi, filterSurveyor].filter(Boolean).length;
+      const reset = () => { setSearch(""); setFilterDesa(""); setFilterKlas(""); setFilterKondisi(""); setFilterSurveyor(""); };
 
       return (
         <div>
@@ -1893,9 +1910,10 @@
               marginBottom:12, border:"1px solid #e2d9c8",
               display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
               {[
-                { label:"Desa",       value:filterDesa,    set:setFilterDesa,    opts:[["","Semua Desa"],       ...desaList.map(d=>[d,d])] },
-                { label:"Klasifikasi",value:filterKlas,    set:setFilterKlas,    opts:[["","Semua Klasifikasi"],...klasList.map(k=>[k,k])] },
-                { label:"Kondisi",    value:filterKondisi, set:setFilterKondisi, opts:[["","Semua Kondisi"],    ...kondisiList.map(k=>[k,k])] },
+                { label:"Desa",       value:filterDesa,       set:setFilterDesa,       opts:[["","Semua Desa"],        ...desaList.map(d=>[d,d])] },
+                { label:"Klasifikasi",value:filterKlas,       set:setFilterKlas,       opts:[["","Semua Klasifikasi"], ...klasList.map(k=>[k,k])] },
+                { label:"Kondisi",    value:filterKondisi,    set:setFilterKondisi,    opts:[["","Semua Kondisi"],     ...kondisiList.map(k=>[k,k])] },
+                { label:"Surveyor",   value:filterSurveyor,   set:setFilterSurveyor,   opts:[["","Semua Surveyor"],    ...SURVEYOR_LIST.map(s=>[s,s])] },
               ].map(f => (
                 <div key={f.label} style={{ position:"relative" }}>
                   <span style={{ position:"absolute", right:10, top:"50%",
