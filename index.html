@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>Album Masjid & Musholla – Kec. Pilangkenceng, Kab. Madiun | v4.6</title>
+  <title>Album Masjid & Musholla – Kec. Pilangkenceng, Kab. Madiun | v4.7</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -43,7 +43,7 @@
     const { useState, useMemo, useEffect, useCallback, useRef } = React;
 
     // ════════════════════════════════════════════════════════════
-    //  KONFIGURASI — v4.5 (Admin Edit Modal [ADMIN-04])
+    //  KONFIGURASI — v4.7 (Checkbox Toggle [ADMIN-06])
     // ════════════════════════════════════════════════════════════
     const SHEETS_CONFIG = {
       SPREADSHEET_ID: "1yXZnF2QSgqD5SHIgSqQA8UDYdvFfXbl51UVgpZ7TY5M",
@@ -1257,9 +1257,11 @@
 
 
     // ════════════════════════════════════════════════════════════
-    //  [ADMIN-04] KOMPONEN: EditMasjidModal — v4.6
+    //  [ADMIN-04] KOMPONEN: EditMasjidModal — v4.7
     //  Perbaikan: + Koordinat GPS, + Link GMaps, + semua field editor,
     //             + ID SIMAS tampil (read-only), Nama Masjid & Desa lock.
+    //  [ADMIN-06] Checkbox toggle untuk: IMAM, MUADZIN, KHOTIB, MARBOT,
+    //             AULA, TPQ_ANAK, TPQ_DEWASA, PERPUSTAKAAN
     // ════════════════════════════════════════════════════════════
     function EditMasjidModal({ masjid, adminSession, onClose, onSaved }) {
       const isSuper  = adminSession?.level === "super";
@@ -1275,7 +1277,8 @@
           judul: "📍 Lokasi & Identitas", fields: [
             { label:"ID SIMAS",         key:"idSimas",         apiField:"ID_SIMAS" },
             { label:"🔒 Nama Masjid",   key:"namaMasjid",      apiField:"NAMA_MASJID",    superOnly:true,  showReadOnly:true },
-            { label:"🔒 Desa",          key:"desa",            apiField:"DESA",           superOnly:true,  showReadOnly:true },
+            { label:"Lokasi Survey",    key:"lokasiSurvey",    apiField:"LOKASI_SURVEY",  type:"select",   options:["MASJID","MUSHOLLA"] },
+            { label:"🔒 Desa",          key:"desa",            apiField:"DESA",           superOnly:true,  showReadOnly:true, type:"select", options:["BULU","DAWUHAN","DUREN","GANDUL","KEDUNGBANTENG","KEDUNGBANTENG ","KEDUNGMARON","KEDUNGREJO","KENONGOREJO","KREBET","LUWORO","MUNENG","NGALE","NGALE ","NGENGOR","PILANGKENCENG","PULEREJO","PURWOREJO","SUMBERGANDU","WONOAYU"] },
             { label:"Alamat",           key:"alamat",          apiField:"ALAMAT" },
             { label:"Tipologi",         key:"tipologi",        apiField:"TIPOLOGI" },
             { label:"Afiliasi",         key:"afiliasi",        apiField:"AFILIASI" },
@@ -1294,7 +1297,7 @@
             { label:"SK Takmir",            key:"skTakmir",          apiField:"SK_TAKMIR" },
             { label:"SK Level",             key:"skLevel",           apiField:"SK_LEVEL" },
             // ── IMAM ──
-            { label:"Imam Masjid",          key:"imam",              apiField:"IMAM",               full:true },
+            { label:"Imam Masjid",          key:"imam",              apiField:"IMAM",               type:"checkbox", full:true },
             { label:"Jumlah Imam Masjid",   key:"jumlahImam",        apiField:"JUMLAH_IMAM" },
             { label:"Nama Imam 1",          key:"namaImam1",         apiField:"NAMA_IMAM_1" },
             { label:"Nama Imam 2",          key:"namaImam2",         apiField:"NAMA_IMAM_2" },
@@ -1303,7 +1306,7 @@
             { label:"Nama Imam 5",          key:"namaImam5",         apiField:"NAMA_IMAM_5" },
             { label:"Nama Imam Lainnya",    key:"namaImamLain",      apiField:"NAMA_IMAM_LAIN",     full:true },
             // ── MUADZIN ──
-            { label:"Muadzin Masjid",       key:"muadzin",           apiField:"MUADZIN",            full:true },
+            { label:"Muadzin Masjid",       key:"muadzin",           apiField:"MUADZIN",            type:"checkbox", full:true },
             { label:"Jumlah Muadzin Masjid",key:"jumlahMuadzin",     apiField:"JUMLAH_MUADZIN" },
             { label:"Nama Muadzin 1",       key:"namaMuadzin1",      apiField:"NAMA_MUADZIN_1" },
             { label:"Nama Muadzin 2",       key:"namaMuadzin2",      apiField:"NAMA_MUADZIN_2" },
@@ -1312,14 +1315,14 @@
             { label:"Nama Muadzin 5",       key:"namaMuadzin5",      apiField:"NAMA_MUADZIN_5" },
             { label:"Nama Muadzin Lainnya", key:"namaMuadzinLain",   apiField:"NAMA_MUADZIN_LAIN",  full:true },
             // ── KHOTIB ──
-            { label:"Khotib Masjid",        key:"khotib",            apiField:"KHOTIB",             full:true },
+            { label:"Khotib Masjid",        key:"khotib",            apiField:"KHOTIB",             type:"checkbox", full:true },
             { label:"Jumlah Khotib Masjid", key:"jumlahKhotib",      apiField:"JUMLAH_KHOTIB" },
             { label:"Nama Khotib 1",        key:"namaKhotib1",       apiField:"NAMA_KHOTIB_1" },
             { label:"Nama Khotib 2",        key:"namaKhotib2",       apiField:"NAMA_KHOTIB_2" },
             { label:"Nama Khotib 3",        key:"namaKhotib3",       apiField:"NAMA_KHOTIB_3" },
             { label:"Nama Khotib Lainnya",  key:"namaKhotibLain",    apiField:"NAMA_KHOTIB_LAIN",   full:true },
             // ── MARBOT ──
-            { label:"Marbot Masjid",        key:"marbot",            apiField:"MARBOT",             full:true },
+            { label:"Marbot Masjid",        key:"marbot",            apiField:"MARBOT",             type:"checkbox", full:true },
             { label:"Jumlah Marbot Masjid", key:"jumlahMarbot",      apiField:"JUMLAH_MARBOT" },
             { label:"Nama Marbot 1",        key:"namaMarbot1",       apiField:"NAMA_MARBOT_1" },
             { label:"Nama Marbot 2",        key:"namaMarbot2",       apiField:"NAMA_MARBOT_2" },
@@ -1356,10 +1359,10 @@
         {
           judul: "🏗️ Fasilitas", fields: [
             { label:"Kondisi Bangunan", key:"kondisiBgn",      apiField:"KONDISI_BGN" },
-            { label:"Aula / R. Rapat",  key:"aula",            apiField:"AULA" },
-            { label:"TPQ Anak",         key:"tpqAnak",         apiField:"TPQ_ANAK" },
-            { label:"TPQ Dewasa",       key:"tpqDewasa",       apiField:"TPQ_DEWASA" },
-            { label:"Perpustakaan",     key:"perpustakaan",    apiField:"PERPUSTAKAAN" },
+            { label:"Aula / R. Rapat",  key:"aula",            apiField:"AULA",         type:"checkbox" },
+            { label:"TPQ Anak",         key:"tpqAnak",         apiField:"TPQ_ANAK",     type:"checkbox" },
+            { label:"TPQ Dewasa",       key:"tpqDewasa",       apiField:"TPQ_DEWASA",   type:"checkbox" },
+            { label:"Perpustakaan",     key:"perpustakaan",    apiField:"PERPUSTAKAAN", type:"checkbox" },
             { label:"Program Sosial",   key:"programSosial",   apiField:"PROGRAM_SOSIAL" },
           ]
         },
@@ -1397,8 +1400,14 @@
       const buildInitial = () => {
         const init = {};
         editableFields().forEach(f => {
-          // Ambil nilai dari masjid object; koordinat & linkGmaps ada di sana
-          init[f.key] = masjid[f.key] || "";
+          if (f.type === "checkbox") {
+            // Centang jika nilainya tidak kosong (Ada = checked)
+            const v = (masjid[f.key] || "").trim();
+            init[f.key] = v !== "" && v.toLowerCase() !== "tidak" && v.toLowerCase() !== "tidak ada";
+          } else {
+            // Ambil nilai dari masjid object; koordinat & linkGmaps ada di sana
+            init[f.key] = masjid[f.key] || "";
+          }
         });
         return init;
       };
@@ -1417,10 +1426,18 @@
         editableFields().forEach(f => {
           // Skip superOnly (termasuk showReadOnly) jika bukan super
           if (f.superOnly && !isSuper) return;
-          const newVal = (values[f.key] || "").trim();
-          const oldVal = (initial[f.key] || "").trim();
-          if (newVal !== oldVal && f.apiField) {
-            changes[f.apiField] = newVal;
+          if (f.type === "checkbox") {
+            const newVal = !!values[f.key];
+            const oldVal = !!initial[f.key];
+            if (newVal !== oldVal && f.apiField) {
+              changes[f.apiField] = newVal ? "Ada" : "";
+            }
+          } else {
+            const newVal = (values[f.key] || "").trim();
+            const oldVal = (initial[f.key] || "").trim();
+            if (newVal !== oldVal && f.apiField) {
+              changes[f.apiField] = newVal;
+            }
           }
         });
         return changes;
@@ -1582,6 +1599,8 @@
                         {visibleFields.map(f => {
                           // Tentukan apakah field ini read-only untuk user saat ini
                           const isReadOnly = f.superOnly && !isSuper;
+                          const isCheckbox = f.type === "checkbox";
+                          const checked    = !!values[f.key];
                           return (
                             <div key={f.key} style={{ gridColumn: f.full ? "1/-1" : "auto" }}>
                               <label style={{ fontSize:11,
@@ -1601,6 +1620,57 @@
                                   wordBreak:"break-all",
                                 }}>
                                   {masjid[f.key] || <span style={{ fontStyle:"italic", color:"#c0c4cc" }}>—</span>}
+                                </div>
+                              ) : f.type === "select" && !isReadOnly ? (
+                                <select
+                                  value={values[f.key] !== undefined ? values[f.key] : ""}
+                                  onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                                  style={{
+                                    ...inpStyle,
+                                    borderColor: (values[f.key] || "") !== (masjid[f.key] || "") ? "#D4A853" : "#e2d9c8",
+                                    background: f.superOnly ? "#fffbeb" : "white",
+                                    cursor:"pointer",
+                                  }}
+                                >
+                                  <option value="">— Pilih —</option>
+                                  {(f.options || []).map(opt => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                  ))}
+                                </select>
+                              ) : isCheckbox ? (
+                                /* Toggle checkbox — klik seluruh baris */
+                                <div
+                                  onClick={() => setValues(v => ({ ...v, [f.key]: !v[f.key] }))}
+                                  style={{
+                                    display:"flex", alignItems:"center", gap:10, cursor:"pointer",
+                                    padding:"8px 12px", borderRadius:8,
+                                    border:"1.5px solid",
+                                    borderColor: checked
+                                      ? (buildInitial()[f.key] !== checked ? "#D4A853" : "#22c55e")
+                                      : (buildInitial()[f.key] !== checked ? "#D4A853" : "#e2d9c8"),
+                                    background: checked ? "#dcfce7" : "#f9fafb",
+                                    transition:"all .18s", userSelect:"none",
+                                  }}>
+                                  {/* Custom toggle pill */}
+                                  <div style={{
+                                    width:38, height:22, borderRadius:11, flexShrink:0,
+                                    background: checked ? "#22c55e" : "#d1d5db",
+                                    position:"relative", transition:"background .2s",
+                                  }}>
+                                    <div style={{
+                                      position:"absolute", top:3,
+                                      left: checked ? 19 : 3,
+                                      width:16, height:16, borderRadius:"50%",
+                                      background:"white", boxShadow:"0 1px 3px rgba(0,0,0,.25)",
+                                      transition:"left .18s",
+                                    }}/>
+                                  </div>
+                                  <span style={{
+                                    fontSize:13, fontWeight:600,
+                                    color: checked ? "#15803d" : "#9ca3af",
+                                  }}>
+                                    {checked ? "✓ Ada" : "— Tidak Ada"}
+                                  </span>
                                 </div>
                               ) : (
                                 <input
