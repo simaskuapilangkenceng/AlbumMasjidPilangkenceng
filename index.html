@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>Album Masjid & Musholla – Kec. Pilangkenceng, Kab. Madiun | v4.7</title>
+  <title>Album Masjid & Musholla – Kec. Pilangkenceng, Kab. Madiun | v4.8</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -43,7 +43,7 @@
     const { useState, useMemo, useEffect, useCallback, useRef } = React;
 
     // ════════════════════════════════════════════════════════════
-    //  KONFIGURASI — v4.7 (Checkbox Toggle [ADMIN-06])
+    //  KONFIGURASI — v4.8 (UX Edit Upgrade [ADMIN-07])
     // ════════════════════════════════════════════════════════════
     const SHEETS_CONFIG = {
       SPREADSHEET_ID: "1yXZnF2QSgqD5SHIgSqQA8UDYdvFfXbl51UVgpZ7TY5M",
@@ -569,7 +569,7 @@
           )}
           ${s("ADMINISTRASI",
             r("SK Takmir", masjid.skTakmir) +
-            r("Diketahui oleh", masjid.skLevel) +
+            r("SK Ditandatangani oleh", masjid.skLevel) +
             r("Luas Tanah", masjid.luasTanah ? masjid.luasTanah+" m²" : "") +
             r("Luas Bangunan", masjid.luasBangunan ? masjid.luasBangunan+" m²" : "") +
             r("Daya Tampung", masjid.dayaTampung ? masjid.dayaTampung+" orang" : "")
@@ -777,7 +777,7 @@
             <AccordionSeksi icon="📋" judul="Administrasi"
               badge={masjid.skTakmir && !masjid.skTakmir.includes("Tidak punya") ? "Ada SK" : null}>
               <FR label="SK Takmir"     value={masjid.skTakmir}/>
-              <FR label="Diketahui oleh" value={masjid.skLevel}/>
+              <FR label="SK Ditandatangani oleh" value={masjid.skLevel}/>
               <FR label="Luas Tanah"    value={masjid.luasTanah    ? masjid.luasTanah    + " m²" : ""}/>
               <FR label="Luas Bangunan" value={masjid.luasBangunan ? masjid.luasBangunan + " m²" : ""}/>
               <FR label="Daya Tampung"  value={masjid.dayaTampung  ? masjid.dayaTampung  + " orang" : ""}/>
@@ -1126,24 +1126,26 @@
                 cursor:"pointer", fontSize:16 }}>✕</button>
             </div>
 
-            {/* Tab kategori — scroll horizontal di mobile */}
-            <div style={{ display:"flex", overflowX:"auto", borderBottom:"2px solid #e2d9c8",
-              background:"white", padding:"0 4px", gap:2 }}>
+            {/* Tab kategori — wrap grid, tidak scroll */}
+            <div style={{ display:"flex", flexWrap:"wrap", borderBottom:"2px solid #e2d9c8",
+              background:"white", padding:"4px 4px 0", gap:2 }}>
               {FOTO_KATEGORI.map(k => {
                 const count = localUrls[k.key]?.length || 0;
                 return (
                   <button key={k.key} onClick={() => setActiveKat(k.key)} style={{
-                    flexShrink:0, padding:"10px 12px", border:"none", cursor:"pointer",
-                    fontSize:12, fontWeight:600, fontFamily:"'DM Sans',sans-serif",
-                    background:"none", whiteSpace:"nowrap",
+                    padding:"8px 10px", border:"none", cursor:"pointer",
+                    fontSize:11, fontWeight:600, fontFamily:"'DM Sans',sans-serif",
+                    background: activeKat === k.key ? "#f0f7f4" : "none",
+                    whiteSpace:"nowrap",
                     color:      activeKat === k.key ? "#1B4332" : "#9ca3af",
                     borderBottom: activeKat === k.key ? "2px solid #1B4332" : "2px solid transparent",
+                    borderRadius:"6px 6px 0 0",
                     marginBottom: -2,
                   }}>
                     {k.icon} {k.label}
                     {count > 0 && (
-                      <span style={{ marginLeft:5, background:"#1B4332", color:"white",
-                        fontSize:10, fontWeight:700, borderRadius:20, padding:"1px 6px" }}>
+                      <span style={{ marginLeft:4, background:"#1B4332", color:"white",
+                        fontSize:9, fontWeight:700, borderRadius:20, padding:"1px 5px" }}>
                         {count}
                       </span>
                     )}
@@ -1295,7 +1297,7 @@
             { label:"WA Sekretaris",        key:"waSekretaris",      apiField:"WA_SEKRETARIS" },
             { label:"Pengurus Lain",        key:"pengurusLain",      apiField:"PENGURUS_LAIN",      full:true },
             { label:"SK Takmir",            key:"skTakmir",          apiField:"SK_TAKMIR" },
-            { label:"SK Level",             key:"skLevel",           apiField:"SK_LEVEL" },
+            { label:"SK Ditandatangani oleh", key:"skLevel",         apiField:"SK_LEVEL" },
             // ── IMAM ──
             { label:"Imam Masjid",          key:"imam",              apiField:"IMAM",               type:"checkbox", full:true },
             { label:"Jumlah Imam Masjid",   key:"jumlahImam",        apiField:"JUMLAH_IMAM" },
@@ -1335,8 +1337,8 @@
             { label:"Luas Bangunan (m²)",key:"luasBangunan",   apiField:"LUAS_BANGUNAN" },
             { label:"Daya Tampung",     key:"dayaTampung",     apiField:"DAYA_TAMPUNG" },
             { label:"Jamaah Total",     key:"jamaahTotal",     apiField:"JAMAAH_TOTAL" },
-            { label:"Jamaah Maghrib",   key:"jamaahMaghrib",   apiField:"JAMAAH_MAGHRIB" },
-            { label:"Jamaah Dhuhur",    key:"jamaahDhuhur",    apiField:"JAMAAH_DHUHUR" },
+            { label:"Jamaah Maghrib/Isya",   key:"jamaahMaghrib",   apiField:"JAMAAH_MAGHRIB" },
+            { label:"Jamaah Dhuhur/Ashar",    key:"jamaahDhuhur",    apiField:"JAMAAH_DHUHUR" },
             { label:"Jamaah Subuh",     key:"jamaahSubuh",     apiField:"JAMAAH_SUBUH" },
             { label:"Jamaah Jumat",     key:"jamaahJumat",     apiField:"JAMAAH_JUMAT" },
           ]
@@ -1353,12 +1355,12 @@
             { label:"Jamaah Rutin 2",   key:"jamaahRutin2",    apiField:"JAMAAH_RUTIN_2" },
             { label:"Jml. Remaja",      key:"jumlahRemaja",    apiField:"JUMLAH_REMAJA" },
             { label:"Ketua Remaja",     key:"namaKetuaRemaja", apiField:"NAMA_KETUA_REMAJA" },
-            { label:"Pengurus Remaja",  key:"pengurusRemajaLain", apiField:"PENGURUS_REMAJA_LAIN", full:true },
+            { label:"Pengurus Remaja Lainnya (wakil/sekretaris/bendahara)",  key:"pengurusRemajaLain", apiField:"PENGURUS_REMAJA_LAIN", full:true },
           ]
         },
         {
           judul: "🏗️ Fasilitas", fields: [
-            { label:"Kondisi Bangunan", key:"kondisiBgn",      apiField:"KONDISI_BGN" },
+            { label:"Kondisi Bangunan", key:"kondisiBgn",      apiField:"KONDISI_BGN",  type:"select", options:["Baik","Sedang","Rusak Ringan","Rusak Berat"] },
             { label:"Aula / R. Rapat",  key:"aula",            apiField:"AULA",         type:"checkbox" },
             { label:"TPQ Anak",         key:"tpqAnak",         apiField:"TPQ_ANAK",     type:"checkbox" },
             { label:"TPQ Dewasa",       key:"tpqDewasa",       apiField:"TPQ_DEWASA",   type:"checkbox" },
@@ -1368,9 +1370,9 @@
         },
         {
           judul: "🏠 Tanah & Wakaf", fields: [
-            { label:"Status Tanah",     key:"statusTanah",     apiField:"STATUS_TANAH" },
+            { label:"Status Tanah",     key:"statusTanah",     apiField:"STATUS_TANAH",  type:"select", options:["Wakaf Bersertifikat","Wakaf Belum Bersertifikat","SHM"] },
             { label:"No. Sertif. Wakaf",key:"nomorSertifWakaf",apiField:"NOMOR_SERTIF_WAKAF" },
-            { label:"Tgl. Sertifikat",  key:"tglSertifWakaf",  apiField:"TGL_SERTIF_WAKAF" },
+            { label:"Tgl. Sertif Wakaf", key:"tglSertifWakaf", apiField:"TGL_SERTIF_WAKAF" },
             { label:"No. AIW",          key:"nomorAIW",        apiField:"NOMOR_AIW" },
             { label:"Tgl. AIW",         key:"tglAIW",          apiField:"TGL_AIW" },
             { label:"Nama Wakif",       key:"namaWakif",       apiField:"NAMA_WAKIF" },
@@ -1601,10 +1603,39 @@
                           const isReadOnly = f.superOnly && !isSuper;
                           const isCheckbox = f.type === "checkbox";
                           const checked    = !!values[f.key];
+                          // ── Logika khusus per field ──────────────────────────────
+                          // Jumlah Imam/Muadzin/Khotib/Marbot → tombol 1–5
+                          const isJumlahField = ["jumlahImam","jumlahMuadzin","jumlahKhotib","jumlahMarbot"].includes(f.key);
+                          // Map jumlahField → namaField prefix
+                          const namaGroupMap = {
+                            jumlahImam:   ["namaImam1","namaImam2","namaImam3","namaImam4","namaImam5"],
+                            jumlahMuadzin:["namaMuadzin1","namaMuadzin2","namaMuadzin3","namaMuadzin4","namaMuadzin5"],
+                            jumlahKhotib: ["namaKhotib1","namaKhotib2","namaKhotib3"],
+                            jumlahMarbot: ["namaMarbot1","namaMarbot2"],
+                          };
+                          // Jumlah max sesuai data (khotib 3, marbot 2, imam/muadzin 5)
+                          const maxJumlah = { jumlahImam:5, jumlahMuadzin:5, jumlahKhotib:3, jumlahMarbot:2 };
+
+                          // Status Tanah conditional field logic
+                          const statusTanah = values["statusTanah"] || "";
+                          const isWakafBersertif = statusTanah === "Wakaf Bersertifikat";
+                          const isWakafBelum     = statusTanah === "Wakaf Belum Bersertifikat";
+                          const isSHM            = statusTanah === "SHM";
+                          // Field aktif berdasarkan status tanah
+                          const wakafOnlyActive  = ["nomorSertifWakaf","tglSertifWakaf","nomorAIW","tglAIW","namaWakif","namaNadzir"];
+                          const belumOnlyActive  = ["nomorAIW","tglAIW","namaWakif","namaNadzir"];
+                          const alwaysActive     = ["rekening","statusTanah"];
+                          const isWakafField = wakafOnlyActive.includes(f.key);
+                          let fieldDisabled = false;
+                          if (isWakafField) {
+                            if (isSHM) fieldDisabled = true;
+                            else if (isWakafBelum && !belumOnlyActive.includes(f.key)) fieldDisabled = true;
+                          }
+
                           return (
                             <div key={f.key} style={{ gridColumn: f.full ? "1/-1" : "auto" }}>
                               <label style={{ fontSize:11,
-                                color: f.superOnly ? (isSuper ? "#b45309" : "#6b7280") : "#6b7280",
+                                color: f.superOnly ? (isSuper ? "#b45309" : "#6b7280") : (fieldDisabled ? "#c0c4cc" : "#6b7280"),
                                 fontWeight:500, display:"block", marginBottom:4 }}>
                                 {f.label}
                                 {f.superOnly && isSuper && <span style={{ marginLeft:4, fontSize:10, color:"#d97706" }}>👑 Super</span>}
@@ -1620,6 +1651,46 @@
                                   wordBreak:"break-all",
                                 }}>
                                   {masjid[f.key] || <span style={{ fontStyle:"italic", color:"#c0c4cc" }}>—</span>}
+                                </div>
+                              ) : isJumlahField ? (
+                                /* Tombol 1–N untuk Jumlah Imam/Muadzin/Khotib/Marbot */
+                                <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                                  {Array.from({length: maxJumlah[f.key]}, (_, i) => i+1).map(n => {
+                                    const sel = parseInt(values[f.key]) === n;
+                                    return (
+                                      <button key={n} type="button"
+                                        onClick={() => {
+                                          setValues(v => {
+                                            const upd = { ...v, [f.key]: String(n) };
+                                            // Auto-clear field nama yang melebihi jumlah baru
+                                            const group = namaGroupMap[f.key] || [];
+                                            group.forEach((nameKey, idx) => {
+                                              if (idx >= n) upd[nameKey] = "";
+                                            });
+                                            return upd;
+                                          });
+                                        }}
+                                        style={{
+                                          width:36, height:36, borderRadius:8, border:"1.5px solid",
+                                          borderColor: sel ? "#1B4332" : "#e2d9c8",
+                                          background:  sel ? "#1B4332" : "white",
+                                          color:       sel ? "white"   : "#374151",
+                                          cursor:"pointer", fontSize:14, fontWeight:700,
+                                          fontFamily:"'DM Sans',sans-serif", transition:"all .15s",
+                                        }}>
+                                        {n}
+                                      </button>
+                                    );
+                                  })}
+                                  {values[f.key] && (
+                                    <button type="button" onClick={() => setValues(v => ({ ...v, [f.key]: "" }))}
+                                      style={{ height:36, padding:"0 10px", borderRadius:8,
+                                        border:"1.5px solid #fca5a5", background:"#fff5f5",
+                                        color:"#dc2626", cursor:"pointer", fontSize:11, fontWeight:600,
+                                        fontFamily:"'DM Sans',sans-serif" }}>
+                                      ✕ Batal
+                                    </button>
+                                  )}
                                 </div>
                               ) : f.type === "select" && !isReadOnly ? (
                                 <select
@@ -1672,17 +1743,62 @@
                                     {checked ? "✓ Ada" : "— Tidak Ada"}
                                   </span>
                                 </div>
+                              ) : fieldDisabled ? (
+                                /* Field mati karena Status Tanah */
+                                <div style={{
+                                  width:"100%", padding:"8px 11px", borderRadius:8,
+                                  border:"1.5px solid #e2d9c8", fontSize:13,
+                                  background:"#f3f4f6", color:"#c0c4cc",
+                                  fontFamily:"'DM Sans',sans-serif", minHeight:36,
+                                  fontStyle:"italic",
+                                }}>
+                                  — (tidak tersedia untuk {statusTanah})
+                                </div>
                               ) : (
-                                <input
-                                  value={values[f.key] !== undefined ? values[f.key] : ""}
-                                  onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
-                                  placeholder={f.placeholder || ""}
-                                  style={{
-                                    ...inpStyle,
-                                    borderColor: (values[f.key] || "") !== (masjid[f.key] || "") ? "#D4A853" : "#e2d9c8",
-                                    background: f.superOnly ? "#fffbeb" : "white",
-                                  }}
-                                />
+                                (() => {
+                                  // Nama 1–5 auto-disable jika index > jumlah yang dipilih
+                                  const namaDisableMap = {
+                                    namaImam1:    { jumlahKey:"jumlahImam",   idx:1 },
+                                    namaImam2:    { jumlahKey:"jumlahImam",   idx:2 },
+                                    namaImam3:    { jumlahKey:"jumlahImam",   idx:3 },
+                                    namaImam4:    { jumlahKey:"jumlahImam",   idx:4 },
+                                    namaImam5:    { jumlahKey:"jumlahImam",   idx:5 },
+                                    namaMuadzin1: { jumlahKey:"jumlahMuadzin",idx:1 },
+                                    namaMuadzin2: { jumlahKey:"jumlahMuadzin",idx:2 },
+                                    namaMuadzin3: { jumlahKey:"jumlahMuadzin",idx:3 },
+                                    namaMuadzin4: { jumlahKey:"jumlahMuadzin",idx:4 },
+                                    namaMuadzin5: { jumlahKey:"jumlahMuadzin",idx:5 },
+                                    namaKhotib1:  { jumlahKey:"jumlahKhotib", idx:1 },
+                                    namaKhotib2:  { jumlahKey:"jumlahKhotib", idx:2 },
+                                    namaKhotib3:  { jumlahKey:"jumlahKhotib", idx:3 },
+                                    namaMarbot1:  { jumlahKey:"jumlahMarbot", idx:1 },
+                                    namaMarbot2:  { jumlahKey:"jumlahMarbot", idx:2 },
+                                  };
+                                  const nm = namaDisableMap[f.key];
+                                  const isNamaDisabled = nm
+                                    ? (values[nm.jumlahKey] !== "" && parseInt(values[nm.jumlahKey]) < nm.idx)
+                                    : false;
+                                  return isNamaDisabled ? (
+                                    <div style={{
+                                      width:"100%", padding:"8px 11px", borderRadius:8,
+                                      border:"1.5px solid #e2d9c8", fontSize:13,
+                                      background:"#f3f4f6", color:"#c0c4cc",
+                                      fontFamily:"'DM Sans',sans-serif", minHeight:36,
+                                      fontStyle:"italic",
+                                    }}>— (tidak digunakan)</div>
+                                  ) : (
+                                    <input
+                                      value={values[f.key] !== undefined ? values[f.key] : ""}
+                                      onChange={e => setValues(v => ({ ...v, [f.key]: e.target.value }))}
+                                      placeholder={f.placeholder || ""}
+                                      style={{
+                                        ...inpStyle,
+                                        borderColor: (values[f.key] || "") !== (masjid[f.key] || "") ? "#D4A853" : "#e2d9c8",
+                                        background: f.superOnly ? "#fffbeb" : "white",
+                                      }}
+                                    />
+                                  );
+                                })()
                               )}
                             </div>
                           );
@@ -1713,15 +1829,25 @@
                 background:"white", color:"#6b7280", cursor:"pointer",
                 fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif",
               }}>Batal</button>
-              <button onClick={handleSave} disabled={loading || changedCount === 0} style={{
+              <button onClick={() => {
+                const idKosong = !masjid.idSimas || masjid.idSimas.trim() === "";
+                if (idKosong && changedCount > 0) {
+                  if (!window.confirm("⚠️ ID SIMAS masih kosong!\n\nData akan disimpan menggunakan Nama Masjid sebagai pengenal.\n\nLanjutkan menyimpan?")) return;
+                }
+                handleSave();
+              }} disabled={loading || changedCount === 0} style={{
                 flex:2, padding:"11px", borderRadius:10, border:"none",
-                background: changedCount > 0 ? "#1B4332" : "#e2d9c8",
+                background: changedCount > 0 ? ((!masjid.idSimas || masjid.idSimas.trim()==="") ? "#b45309" : "#1B4332") : "#e2d9c8",
                 color:      changedCount > 0 ? "white"   : "#9ca3af",
                 cursor: (loading || changedCount === 0) ? "not-allowed" : "pointer",
                 fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif",
                 transition:"all .2s",
               }}>
-                {loading ? "⏳ Menyimpan..." : changedCount > 0 ? `💾 Simpan (${changedCount} perubahan)` : "Tidak ada perubahan"}
+                {loading ? "⏳ Menyimpan..." : changedCount > 0
+                  ? ((!masjid.idSimas || masjid.idSimas.trim()==="")
+                      ? `⚠️ Simpan (ID SIMAS kosong · ${changedCount} perubahan)`
+                      : `💾 Simpan (${changedCount} perubahan)`)
+                  : "Tidak ada perubahan"}
               </button>
             </div>
 
