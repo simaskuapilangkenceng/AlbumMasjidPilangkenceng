@@ -659,7 +659,9 @@
         if (!files.length) return;
         setUploading(true);
         for (const file of files) {
-          if (!file.type.startsWith("image/")) { showToast(false, `${file.name}: hanya file gambar.`); continue; }
+          const isPdfKat = ["sertifWakaf","fotoAIW"].includes(activeKat);
+          if (isPdfKat && file.type !== "application/pdf") { showToast(false, `${file.name}: hanya file PDF.`); continue; }
+          if (!isPdfKat && !file.type.startsWith("image/")) { showToast(false, `${file.name}: hanya file gambar.`); continue; }
           if (file.size > 5*1024*1024) { showToast(false, `${file.name}: maks 5MB.`); continue; }
           const base64 = await new Promise((res,rej) => {
             const r = new FileReader();
