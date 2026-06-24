@@ -1771,6 +1771,248 @@
     // ════════════════════════════════════════════════════════════
     //  ADMIN BADGE
     // ════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════
+    //  TAB KENDALI DATA — Monitor kelengkapan data per surveyor
+    // ════════════════════════════════════════════════════════════
+    const KD_GROUPS = [
+      { id:"identitas",    label:"Identitas",   icon:"🕌", color:"#DC2626",
+        fields:["Nomor ID SIMAS (Sistem Informasi Masjid Kemenag)","Nama Masjid / Musholla","Desa","Alamat Lengkap","Link Google Maps","Koordinat","Email Masjid/Musholla","Media Sosial"] },
+      { id:"kepengurusan", label:"Pengurus",    icon:"👥", color:"#D97706",
+        fields:["Nama Ketua Takmir","Nomor WhatsApp Ketua Takmir (jika diizinkan)","Nama Sekretaris Takmir","SK Takmir — Periode (Tahun Mulai s/d Tahun Akhir)","SK Takmir Diketahui / Ditandatangani Oleh","Jumlah Imam Masjid","Nama Imam 1 ","Jumlah Muadzin Masjid","Nama Muadzin 1 ","Jumlah Khotib Masjid","Nama Khotib 1","Jumlah Marbot Masjid","Nama Marbot 1 "] },
+      { id:"jamaah",       label:"Jamaah",      icon:"📋", color:"#059669",
+        fields:["Luas Tanah (m²)","Luas Bangunan (m²)","Daya tampung jamaah","Jumlah Seluruh Jamaah Tercatat (orang dewasa)","Jumlah Jamaah Sholat Jumat rata-rata","Jumlah Jamaah Subuh rata-rata","Jumlah Anggota Remaja Masjid","Nama Ketua Remaja Masjid","Nama Majelis Taklim","Nama Pengasuh","TPQ Anak-Anak / Remaja","TPQ Dewasa / Lansia","Kondisi Bangunan Masjid & Fasilitas Penunjang"] },
+      { id:"legalitas",    label:"Legalitas",   icon:"📜", color:"#7C3AED",
+        fields:["Status Tanah","Nomor Sertifikat  Wakaf","Tanggal Sertifikat  Wakaf","Nomor Akta Ikrar Wakaf (AIW)  ","Tanggal Akta Ikrar Wakaf (AIW)  ","Nama Wakif  ","Nama Nadzir  ","Wakaf Produktif","Nomor Rekening Bantuan (atas nama lembaga/masjid)"] },
+      { id:"foto",         label:"Foto",        icon:"📷", color:"#0284C7",
+        fields:["Foto Tampak Depan Masjid (tampak jelas nama masjidnya)","Foto Dalam Masjid (mihrab / mimbar kelihatan)","Foto Tempat Wudhu","Foto Kamar Mandi / WC","Foto Lainnya (tampak samping, kegiatan, fasilitas lain, dll)","Nomor Sertifikat Kalibrasi","Foto Dokumen Sertifikat Kalibrasi","Foto Sertifikat Wakaf  ","Foto Akta Ikrar Wakaf"] },
+    ];
+
+    function kdScore(rowData, fields) {
+      let filled = 0;
+      const detail = fields.map(f => {
+        const val = (rowData[f.trim()] || "").toString().trim();
+        const ok = val !== "";
+        if (ok) filled++;
+        return { label: f.trim(), value: ok ? (val.length > 70 ? val.slice(0,70)+"…" : val) : "", filled: ok };
+      });
+      return { filled, total: fields.length, pct: Math.round(filled/fields.length*100), detail };
+    }
+
+    function KdBadge({ pct }) {
+      const c = pct===100?"#059669":pct>=75?"#D97706":pct>=50?"#F59E0B":"#DC2626";
+      const bg= pct===100?"#ECFDF5":pct>=75?"#FFFBEB":pct>=50?"#FEF3C7":"#FEF2F2";
+      return <span style={{display:"inline-block",padding:"2px 8px",borderRadius:999,fontSize:11,fontWeight:700,color:c,background:bg,border:`1px solid ${c}33`,minWidth:40,textAlign:"center"}}>{pct}%</span>;
+    }
+    function KdBar({ pct, color }) {
+      return <div style={{width:"100%",height:4,background:"#E5E7EB",borderRadius:3,marginTop:3}}><div style={{width:`${pct}%`,height:"100%",background:color,borderRadius:3,transition:"width .5s"}}/></div>;
+    }
+
+    function TabKendaliData({ session }) {
+      const [kdData,    setKdData]    = useState([]);
+      const [kdLoad,    setKdLoad]    = useState(true);
+      const [kdErr,     setKdErr]     = useState("");
+      const [search,    setSearch]    = useState("");
+      const [fStatus,   setFStatus]   = useState("semua");
+      const [fGrup,     setFGrup]     = useState("semua");
+      const [sortBy,    setSortBy]    = useState("nama");
+      const [modal,     setModal]     = useState(null);
+      const [modalGrup, setModalGrup] = useState("identitas");
+
+      useEffect(() => {
+        setKdLoad(true); setKdErr("");
+        if (typeof google === "undefined" || !google.script) {
+          setKdErr("google.script tidak tersedia. Pastikan halaman dijalankan via Google Apps Script Web App.");
+          setKdLoad(false); return;
+        }
+        google.script.run
+          .withSuccessHandler(resp => {
+            if (!resp || !resp.masjid) { setKdErr("Data tidak ditemukan."); setKdLoad(false); return; }
+            setKdData(resp.masjid);
+            setKdLoad(false);
+          })
+          .withFailureHandler(err => { setKdErr("Gagal memuat: " + (err.message||err)); setKdLoad(false); })
+          .getKendaliData(session.nama);
+      }, [session.nama]);
+
+      const processed = React.useMemo(() => {
+        return kdData.filter(m => {
+          const q = search.toLowerCase();
+          if (q && !m.nama.toLowerCase().includes(q) && !m.desa.toLowerCase().includes(q)) return false;
+          if (fStatus==="lengkap" && m.overallPct!==100) return false;
+          if (fStatus==="hampir"  && !(m.overallPct>=75&&m.overallPct<100)) return false;
+          if (fStatus==="perlu"   && m.overallPct>=75) return false;
+          if (fGrup!=="semua") { const g=m.groups.find(x=>x.id===fGrup); if(!g||g.pct===100) return false; }
+          return true;
+        }).sort((a,b) => sortBy==="nama"?a.nama.localeCompare(b.nama):sortBy==="pct_asc"?a.overallPct-b.overallPct:b.overallPct-a.overallPct);
+      }, [kdData, search, fStatus, fGrup, sortBy]);
+
+      const summary = React.useMemo(() => ({
+        total:   kdData.length,
+        lengkap: kdData.filter(m=>m.overallPct===100).length,
+        hampir:  kdData.filter(m=>m.overallPct>=75&&m.overallPct<100).length,
+        perlu:   kdData.filter(m=>m.overallPct<75).length,
+        avg:     kdData.length ? Math.round(kdData.reduce((a,m)=>a+m.overallPct,0)/kdData.length) : 0,
+      }), [kdData]);
+
+      if (kdLoad) return <div style={{textAlign:"center",padding:60,color:"#94A3B8"}}><div style={{fontSize:36,marginBottom:12}}>⏳</div><p>Memuat data Kendali Data…</p></div>;
+      if (kdErr)  return <div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:12,padding:20,color:"#991B1B",fontSize:13}}>⚠️ {kdErr}</div>;
+
+      const thStyle = {flex:1,padding:"0 6px",fontSize:10,fontWeight:700,color:"#64748B",textTransform:"uppercase",letterSpacing:".07em"};
+      const selStyle = {padding:"8px 10px",border:"1px solid #E2E8F0",borderRadius:8,fontSize:13,background:"#fff",fontFamily:"'DM Sans',sans-serif"};
+
+      return (
+        <div>
+          {/* Judul */}
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:12}}>
+            <div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,fontWeight:700,color:"#1B4332"}}>📋 Kendali Data</div>
+              <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>Monitor kelengkapan data masjid & musholla survei Anda</div>
+            </div>
+          </div>
+
+          {/* Summary Cards */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:12,marginBottom:20}}>
+            {[
+              {label:"Total Lokasi",         val:summary.total,   color:"#0EA5E9",icon:"🕌"},
+              {label:"Data Lengkap",          val:summary.lengkap, color:"#059669",icon:"✅"},
+              {label:"Hampir Lengkap",        val:summary.hampir,  color:"#D97706",icon:"⚠️"},
+              {label:"Perlu Dilengkapi",      val:summary.perlu,   color:"#DC2626",icon:"❌"},
+              {label:"Rata-rata Kelengkapan", val:summary.avg+"%", color:"#7C3AED",icon:"📊"},
+            ].map((c,i) => (
+              <div key={i} style={{background:"#fff",borderRadius:12,padding:"14px 16px",border:"1px solid #E2E8F0",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                  <span style={{fontSize:15}}>{c.icon}</span>
+                  <span style={{fontSize:9,fontWeight:700,color:"#94A3B8",textTransform:"uppercase",letterSpacing:".06em"}}>{c.label}</span>
+                </div>
+                <div style={{fontSize:22,fontWeight:800,color:c.color}}>{c.val}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Filter */}
+          <div style={{background:"#fff",border:"1px solid #E2E8F0",borderRadius:12,padding:"12px 16px",marginBottom:14,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Cari nama masjid atau desa…"
+              style={{flex:"1 1 180px",padding:"8px 12px",border:"1px solid #E2E8F0",borderRadius:8,fontSize:13,outline:"none",fontFamily:"'DM Sans',sans-serif",minWidth:0}}/>
+            <select value={fStatus} onChange={e=>setFStatus(e.target.value)} style={selStyle}>
+              <option value="semua">Semua Status</option>
+              <option value="lengkap">✅ Lengkap (100%)</option>
+              <option value="hampir">⚠️ Hampir Lengkap (≥75%)</option>
+              <option value="perlu">❌ Perlu Dilengkapi (&lt;75%)</option>
+            </select>
+            <select value={fGrup} onChange={e=>setFGrup(e.target.value)} style={selStyle}>
+              <option value="semua">Semua Grup</option>
+              {KD_GROUPS.map(g=><option key={g.id} value={g.id}>{g.icon} {g.label} — ada yg kosong</option>)}
+            </select>
+            <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={selStyle}>
+              <option value="nama">Nama A–Z</option>
+              <option value="pct_asc">Kelengkapan ↑</option>
+              <option value="pct_desc">Kelengkapan ↓</option>
+            </select>
+            <span style={{fontSize:12,color:"#94A3B8",marginLeft:"auto",whiteSpace:"nowrap"}}>
+              <b style={{color:"#1B4332"}}>{processed.length}</b> lokasi
+            </span>
+          </div>
+
+          {/* Tabel */}
+          <div style={{background:"#fff",border:"1px solid #E2E8F0",borderRadius:12,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+            {/* Header */}
+            <div style={{display:"flex",background:"#F8FAFC",borderBottom:"1px solid #E2E8F0",padding:"10px 14px",alignItems:"center"}}>
+              <div style={{...thStyle,flex:2}}>Nama & Lokasi</div>
+              <div style={{...thStyle,flex:.85,textAlign:"center"}}>Total</div>
+              {KD_GROUPS.map(g=><div key={g.id} style={{...thStyle,textAlign:"center"}}>{g.icon} {g.label}</div>)}
+              <div style={{...thStyle,flex:.7,textAlign:"center"}}>Aksi</div>
+            </div>
+            {/* Rows */}
+            {processed.length===0 ? (
+              <div style={{padding:"48px 24px",textAlign:"center",color:"#94A3B8"}}>
+                <div style={{fontSize:36,marginBottom:10}}>🔍</div>
+                <p style={{margin:0}}>Tidak ada data yang cocok dengan filter.</p>
+              </div>
+            ) : processed.map((m,idx) => (
+              <div key={idx} style={{display:"flex",alignItems:"center",padding:"11px 14px",borderBottom:idx<processed.length-1?"1px solid #F1F5F9":"none",background:idx%2===0?"#fff":"#FAFBFF",cursor:"default",transition:"background .1s"}}
+                onMouseEnter={e=>e.currentTarget.style.background="#EFF6FF"}
+                onMouseLeave={e=>e.currentTarget.style.background=idx%2===0?"#fff":"#FAFBFF"}>
+                <div style={{flex:2,padding:"0 6px",minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#0F172A"}}>{m.nama}</div>
+                  <div style={{fontSize:11,color:"#94A3B8",marginTop:2}}>{m.desa} · {m.tipologi}</div>
+                </div>
+                <div style={{flex:.85,padding:"0 6px",textAlign:"center"}}>
+                  <KdBadge pct={m.overallPct}/>
+                  <KdBar pct={m.overallPct} color={m.overallPct===100?"#059669":m.overallPct>=75?"#D97706":m.overallPct>=50?"#F59E0B":"#DC2626"}/>
+                  <div style={{fontSize:10,color:"#94A3B8",marginTop:2}}>{m.totalFilled}/{m.totalFields}</div>
+                </div>
+                {m.groups.map(g=>(
+                  <div key={g.id} style={{flex:1,padding:"0 6px",textAlign:"center"}}>
+                    <KdBadge pct={g.pct}/>
+                    <KdBar pct={g.pct} color={KD_GROUPS.find(x=>x.id===g.id)?.color||"#64748B"}/>
+                    <div style={{fontSize:10,color:"#94A3B8",marginTop:2}}>{g.filled}/{g.total}</div>
+                  </div>
+                ))}
+                <div style={{flex:.7,padding:"0 6px",textAlign:"center"}}>
+                  <button onClick={()=>{setModal(m);setModalGrup("identitas");}}
+                    style={{padding:"5px 11px",background:"#EFF6FF",color:"#1D4ED8",border:"1px solid #BFDBFE",borderRadius:7,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>
+                    Detail →
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Legend */}
+          <div style={{marginTop:14,display:"flex",gap:16,flexWrap:"wrap",fontSize:11,color:"#64748B"}}>
+            <span style={{color:"#059669"}}>● Lengkap (100%)</span>
+            <span style={{color:"#D97706"}}>● Hampir (75–99%)</span>
+            <span style={{color:"#F59E0B"}}>● Sedang (50–74%)</span>
+            <span style={{color:"#DC2626"}}>● Perlu Dilengkapi (&lt;50%)</span>
+          </div>
+
+          {/* Modal Detail */}
+          {modal && (
+            <div onClick={()=>setModal(null)} style={{position:"fixed",inset:0,background:"rgba(15,23,42,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+              <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:680,maxHeight:"90vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 60px rgba(0,0,0,.25)"}}>
+                <div style={{padding:"20px 24px 14px",borderBottom:"1px solid #F1F5F9",display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexShrink:0}}>
+                  <div>
+                    <div style={{fontSize:10,fontWeight:700,color:"#64748B",letterSpacing:".08em",textTransform:"uppercase"}}>Detail Kendali Data</div>
+                    <div style={{fontSize:17,fontWeight:800,color:"#0F172A",marginTop:4}}>{modal.nama}</div>
+                    <div style={{fontSize:12,color:"#94A3B8",marginTop:2}}>{modal.desa} · {modal.tipologi}</div>
+                  </div>
+                  <button onClick={()=>setModal(null)} style={{background:"#F1F5F9",border:"none",borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:16,color:"#64748B",lineHeight:1}}>✕</button>
+                </div>
+                {/* Grup tabs */}
+                <div style={{display:"flex",gap:6,padding:"12px 24px",borderBottom:"1px solid #F1F5F9",overflowX:"auto",flexShrink:0}}>
+                  {modal.groups.map(g=>{
+                    const grpDef=KD_GROUPS.find(x=>x.id===g.id);
+                    const active=modalGrup===g.id;
+                    return <button key={g.id} onClick={()=>setModalGrup(g.id)}
+                      style={{display:"flex",alignItems:"center",gap:5,padding:"6px 11px",borderRadius:8,border:`1.5px solid ${active?(grpDef?.color||"#1D4ED8"):"#E2E8F0"}`,background:active?"#EFF6FF":"#fff",cursor:"pointer",fontSize:12,fontWeight:active?700:500,color:active?(grpDef?.color||"#1D4ED8"):"#64748B",whiteSpace:"nowrap",fontFamily:"'DM Sans',sans-serif"}}>
+                      {grpDef?.icon} {g.label} <KdBadge pct={g.pct}/>
+                    </button>;
+                  })}
+                </div>
+                {/* Field list */}
+                <div style={{overflowY:"auto",padding:"16px 24px 24px",flex:1}}>
+                  <div style={{display:"grid",gap:7}}>
+                    {(modal.groups.find(g=>g.id===modalGrup)?.detail||[]).map((f,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",padding:"9px 12px",borderRadius:10,background:f.filled?"#F8FAFF":"#FFF7F7",border:`1px solid ${f.filled?"#DBEAFE":"#FEE2E2"}`,gap:10}}>
+                        <span style={{fontSize:14,flexShrink:0}}>{f.filled?"✅":"❌"}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:12,fontWeight:600,color:f.filled?"#1E40AF":"#991B1B"}}>{f.label}</div>
+                          {f.filled
+                            ? <div style={{fontSize:11,color:"#64748B",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{f.value.startsWith("http")?"📎 File/Link tersedia":f.value}</div>
+                            : <div style={{fontSize:11,color:"#EF4444"}}>Belum diisi</div>
+                          }
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     function AdminBadge({ session, onLogout }) {
       const [loading,setLoading]=useState(false), [expand,setExpand]=useState(false);
       const LEVEL_COLOR={super:{bg:"#fef9c3",color:"#a16207"},editor:{bg:"#dcfce7",color:"#15803d"},viewer:{bg:"#f3f4f6",color:"#6b7280"}};
@@ -1831,6 +2073,7 @@
         { id:"peta",      icon:"🗺️",  label:"Peta"      },
         { id:"statistik", icon:"📊",  label:"Statistik" },
         { id:"kiblat",    icon:"🧭",  label:"Kiblat"    },
+        ...(adminSession ? [{ id:"kendali", icon:"📋", label:"Kendali Data" }] : []),
       ];
 
       return (
@@ -1896,6 +2139,7 @@
             {tab === "peta"      && <TabPeta      data={data} onSelect={setSelected}/>}
             {tab === "statistik" && <TabStatistik data={data}/>}
             {tab === "kiblat"    && <TabKiblat/>}
+            {tab === "kendali"   && adminSession && <TabKendaliData session={adminSession}/>}
 
             <div style={{ marginTop:40, paddingTop:16, borderTop:"1px solid #e8e0d0", textAlign:"center", fontSize:11, color:"#9ca3af", lineHeight:1.8 }}>
               Direktori Masjid & Musholla · Kecamatan Pilangkenceng, Kabupaten Madiun<br/>
