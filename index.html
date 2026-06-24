@@ -1987,7 +1987,7 @@
                   </div>
                   <button onClick={()=>setModal(null)} style={{background:"#F1F5F9",border:"none",borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:16,color:"#64748B",lineHeight:1}}>✕</button>
                 </div>
-                <div style={{display:"flex",gap:6,padding:"12px 24px",borderBottom:"1px solid #F1F5F9",overflowX:"auto",flexShrink:0}}>
+                <div style={{display:"flex",gap:6,padding:"12px 24px",borderBottom:"1px solid #F1F5F9",flexWrap:"wrap",flexShrink:0}}>
                   {modal.groups.map(g=>{
                     const gd=KD_GROUPS.find(x=>x.id===g.id);
                     const act=modalGrup===g.id;
