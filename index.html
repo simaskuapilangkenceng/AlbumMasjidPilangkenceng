@@ -673,11 +673,7 @@
           try {
             const resp = await fetch(WEBAPP_URL, {
               method:"POST", headers:{"Content-Type":"text/plain"},
-              body: JSON.stringify({ action:"uploadFoto", token:adminSession.token,
-                idSimas: masjid.idSimas?.trim() || undefined,
-                namaMasjidFallback: !masjid.idSimas?.trim() ? masjid.namaMasjid : undefined,
-                desaFallback: !masjid.idSimas?.trim() ? (masjid.desa || "") : undefined,
-                kategori:activeKat, fileName:file.name, mimeType:file.type, base64, mode:"append" }),
+              body: JSON.stringify({ action:"uploadFoto", token:adminSession.token, idSimas:masjid.idSimas, kategori:activeKat, fileName:file.name, mimeType:file.type, base64, mode:"append" }),
             });
             const json = await resp.json();
             if (json.ok) {
@@ -697,11 +693,7 @@
         try {
           const resp = await fetch(WEBAPP_URL, {
             method:"POST", headers:{"Content-Type":"text/plain"},
-            body: JSON.stringify({ action:"deleteFoto", token:adminSession.token,
-              idSimas: masjid.idSimas?.trim() || undefined,
-              namaMasjidFallback: !masjid.idSimas?.trim() ? masjid.namaMasjid : undefined,
-              desaFallback: !masjid.idSimas?.trim() ? (masjid.desa || "") : undefined,
-              kategori:activeKat, fileUrl:url }),
+            body: JSON.stringify({ action:"deleteFoto", token:adminSession.token, idSimas:masjid.idSimas, kategori:activeKat, fileUrl:url }),
           });
           const json = await resp.json();
           if (json.ok) {
@@ -1805,22 +1797,27 @@
     }
 
     function TabKendaliData({ session }) {
+      const isAdmin = session.level === "super";
+
       const [kdData,    setKdData]    = useState([]);
       const [kdLoad,    setKdLoad]    = useState(true);
       const [kdErr,     setKdErr]     = useState("");
       const [search,    setSearch]    = useState("");
       const [fStatus,   setFStatus]   = useState("semua");
       const [fGrup,     setFGrup]     = useState("semua");
+      const [fSurveyor, setFSurveyor] = useState("semua");
+      const [fDesa,     setFDesa]     = useState("semua");
       const [sortBy,    setSortBy]    = useState("nama");
       const [modal,     setModal]     = useState(null);
       const [modalGrup, setModalGrup] = useState("identitas");
 
       const muat = useCallback(() => {
         setKdLoad(true); setKdErr("");
+        const action = isAdmin ? "getKendaliDataAdmin" : "getKendaliData";
         fetch(WEBAPP_URL, {
           method: "POST",
           headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({ action: "getKendaliData", token: session.token })
+          body: JSON.stringify({ action, token: session.token })
         })
           .then(r => r.json())
           .then(resp => {
@@ -1829,21 +1826,40 @@
             setKdLoad(false);
           })
           .catch(err => { setKdErr("Gagal menghubungi server: " + err.message); setKdLoad(false); });
-      }, [session.token]);
+      }, [session.token, isAdmin]);
 
       useEffect(() => { muat(); }, [muat]);
+
+      // Daftar unik surveyor & desa untuk filter admin
+      const daftarSurveyor = useMemo(() => {
+        const s = [...new Set(kdData.map(m => m.surveyor).filter(Boolean))].sort();
+        return s;
+      }, [kdData]);
+      const daftarDesa = useMemo(() => {
+        const d = [...new Set(kdData.map(m => m.desa).filter(Boolean))].sort();
+        return d;
+      }, [kdData]);
 
       const processed = useMemo(() => {
         return kdData.filter(m => {
           const q = search.toLowerCase();
-          if (q && !m.nama.toLowerCase().includes(q) && !(m.desa||"").toLowerCase().includes(q)) return false;
+          if (q && !m.nama.toLowerCase().includes(q) && !(m.desa||"").toLowerCase().includes(q) && !(m.surveyor||"").toLowerCase().includes(q)) return false;
           if (fStatus==="lengkap" && m.overallPct!==100) return false;
           if (fStatus==="hampir"  && !(m.overallPct>=75&&m.overallPct<100)) return false;
           if (fStatus==="perlu"   && m.overallPct>=75) return false;
           if (fGrup!=="semua") { const g=m.groups.find(x=>x.id===fGrup); if(!g||g.pct===100) return false; }
+          if (isAdmin && fSurveyor!=="semua" && m.surveyor!==fSurveyor) return false;
+          if (isAdmin && fDesa!=="semua"     && m.desa!==fDesa)         return false;
           return true;
-        }).sort((a,b) => sortBy==="nama"?a.nama.localeCompare(b.nama):sortBy==="pct_asc"?a.overallPct-b.overallPct:b.overallPct-a.overallPct);
-      }, [kdData,search,fStatus,fGrup,sortBy]);
+        }).sort((a,b) => {
+          if (sortBy==="nama")      return a.nama.localeCompare(b.nama);
+          if (sortBy==="pct_asc")   return a.overallPct - b.overallPct;
+          if (sortBy==="pct_desc")  return b.overallPct - a.overallPct;
+          if (sortBy==="surveyor")  return (a.surveyor||"").localeCompare(b.surveyor||"");
+          if (sortBy==="desa")      return (a.desa||"").localeCompare(b.desa||"");
+          return 0;
+        });
+      }, [kdData,search,fStatus,fGrup,fSurveyor,fDesa,sortBy,isAdmin]);
 
       const summary = useMemo(() => ({
         total:   kdData.length,
@@ -1866,14 +1882,22 @@
 
       return (
         <div>
+          {/* Judul */}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:12}}>
             <div>
-              <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,fontWeight:700,color:"#1B4332"}}>📋 Kendali Data</div>
-              <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>Monitor kelengkapan data masjid & musholla · {session.nama}</div>
+              <div style={{fontFamily:"'Playfair Display',serif",fontSize:19,fontWeight:700,color:"#1B4332"}}>
+                {isAdmin ? "📋 Kendali Data — Semua Surveyor" : "📋 Kendali Data"}
+              </div>
+              <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>
+                {isAdmin
+                  ? `Review kelengkapan data seluruh masjid & musholla · ${summary.total} lokasi dari ${daftarSurveyor.length} surveyor`
+                  : `Monitor kelengkapan data masjid & musholla · ${session.nama}`}
+              </div>
             </div>
             <button onClick={muat} style={{padding:"7px 14px",background:"#1B4332",color:"#fff",border:"none",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>🔄 Refresh</button>
           </div>
 
+          {/* Summary Cards */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))",gap:12,marginBottom:20}}>
             {[
               {label:"Total Lokasi",   val:summary.total,   color:"#0EA5E9",icon:"🕌"},
@@ -1881,6 +1905,7 @@
               {label:"Hampir Lengkap", val:summary.hampir,  color:"#D97706",icon:"⚠️"},
               {label:"Perlu Diisi",    val:summary.perlu,   color:"#DC2626",icon:"❌"},
               {label:"Rata-rata",      val:summary.avg+"%", color:"#7C3AED",icon:"📊"},
+              ...(isAdmin ? [{label:"Surveyor",val:daftarSurveyor.length,color:"#0284C7",icon:"👥"}] : []),
             ].map((c,i)=>(
               <div key={i} style={{background:"#fff",borderRadius:12,padding:"14px 16px",border:"1px solid #E2E8F0",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
                 <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
@@ -1892,8 +1917,10 @@
             ))}
           </div>
 
+          {/* Filter Bar */}
           <div style={{background:"#fff",border:"1px solid #E2E8F0",borderRadius:12,padding:"12px 16px",marginBottom:14,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Cari nama masjid atau desa…"
+            <input value={search} onChange={e=>setSearch(e.target.value)}
+              placeholder={isAdmin ? "🔍 Cari nama, desa, atau surveyor…" : "🔍 Cari nama masjid atau desa…"}
               style={{flex:"1 1 180px",padding:"8px 12px",border:"1px solid #E2E8F0",borderRadius:8,fontSize:13,outline:"none",fontFamily:"'DM Sans',sans-serif",minWidth:0}}/>
             <select value={fStatus} onChange={e=>setFStatus(e.target.value)} style={selSt}>
               <option value="semua">Semua Status</option>
@@ -1905,36 +1932,63 @@
               <option value="semua">Semua Grup</option>
               {KD_GROUPS.map(g=><option key={g.id} value={g.id}>{g.icon} {g.label} — ada yg kosong</option>)}
             </select>
+            {isAdmin && (
+              <select value={fSurveyor} onChange={e=>setFSurveyor(e.target.value)} style={selSt}>
+                <option value="semua">👥 Semua Surveyor</option>
+                {daftarSurveyor.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            )}
+            {isAdmin && (
+              <select value={fDesa} onChange={e=>setFDesa(e.target.value)} style={selSt}>
+                <option value="semua">🏘️ Semua Desa</option>
+                {daftarDesa.map(d=><option key={d} value={d}>{d}</option>)}
+              </select>
+            )}
             <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={selSt}>
               <option value="nama">Nama A–Z</option>
               <option value="pct_asc">Kelengkapan ↑</option>
               <option value="pct_desc">Kelengkapan ↓</option>
+              {isAdmin && <option value="surveyor">Surveyor A–Z</option>}
+              {isAdmin && <option value="desa">Desa A–Z</option>}
             </select>
             <span style={{fontSize:12,color:"#94A3B8",marginLeft:"auto",whiteSpace:"nowrap"}}><b style={{color:"#1B4332"}}>{processed.length}</b> lokasi</span>
           </div>
 
+          {/* Tabel */}
           <div style={{background:"#fff",border:"1px solid #E2E8F0",borderRadius:12,overflow:"auto",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
-            <div style={{display:"flex",background:"#F8FAFC",borderBottom:"1px solid #E2E8F0",padding:"10px 14px",minWidth:800}}>
+            {/* Header */}
+            <div style={{display:"flex",background:"#F8FAFC",borderBottom:"1px solid #E2E8F0",padding:"10px 14px",minWidth:isAdmin?960:800}}>
               <div style={{...thSt,flex:2}}>Nama & Lokasi</div>
+              {isAdmin && <div style={{...thSt,flex:1.2}}>Surveyor</div>}
               <div style={{...thSt,flex:.85,textAlign:"center"}}>Total</div>
               {KD_GROUPS.map(g=><div key={g.id} style={{...thSt,textAlign:"center"}}>{g.icon} {g.label}</div>)}
               <div style={{...thSt,flex:.65,textAlign:"center"}}>Aksi</div>
             </div>
+            {/* Rows */}
             {processed.length===0
               ? <div style={{padding:"48px 24px",textAlign:"center",color:"#94A3B8"}}><div style={{fontSize:36,marginBottom:10}}>🔍</div><p style={{margin:0}}>Tidak ada data yang cocok.</p></div>
               : processed.map((m,idx)=>(
-                <div key={idx} style={{display:"flex",alignItems:"center",padding:"11px 14px",borderBottom:idx<processed.length-1?"1px solid #F1F5F9":"none",background:idx%2===0?"#fff":"#FAFBFF",minWidth:800,transition:"background .1s"}}
+                <div key={idx} style={{display:"flex",alignItems:"center",padding:"11px 14px",borderBottom:idx<processed.length-1?"1px solid #F1F5F9":"none",background:idx%2===0?"#fff":"#FAFBFF",minWidth:isAdmin?960:800,transition:"background .1s"}}
                   onMouseEnter={e=>e.currentTarget.style.background="#EFF6FF"}
                   onMouseLeave={e=>e.currentTarget.style.background=idx%2===0?"#fff":"#FAFBFF"}>
+                  {/* Nama & Lokasi */}
                   <div style={{flex:2,padding:"0 6px",minWidth:0}}>
                     <div style={{fontSize:13,fontWeight:700,color:"#0F172A",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.nama}</div>
                     <div style={{fontSize:11,color:"#94A3B8",marginTop:2}}>{m.desa} · {m.tipologi}</div>
                   </div>
+                  {/* Kolom Surveyor (admin only) */}
+                  {isAdmin && (
+                    <div style={{flex:1.2,padding:"0 6px",minWidth:0}}>
+                      <div style={{fontSize:11,color:"#374151",fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.surveyor||"—"}</div>
+                    </div>
+                  )}
+                  {/* Total */}
                   <div style={{flex:.85,padding:"0 6px",textAlign:"center"}}>
                     <KdBadge pct={m.overallPct}/>
                     <KdBar pct={m.overallPct} color={m.overallPct===100?"#059669":m.overallPct>=75?"#D97706":m.overallPct>=50?"#F59E0B":"#DC2626"}/>
                     <div style={{fontSize:10,color:"#94A3B8",marginTop:2}}>{m.totalFilled}/{m.totalFields}</div>
                   </div>
+                  {/* Per Grup */}
                   {m.groups.map(g=>(
                     <div key={g.id} style={{flex:1,padding:"0 6px",textAlign:"center"}}>
                       <KdBadge pct={g.pct}/>
@@ -1942,6 +1996,7 @@
                       <div style={{fontSize:10,color:"#94A3B8",marginTop:2}}>{g.filled}/{g.total}</div>
                     </div>
                   ))}
+                  {/* Aksi */}
                   <div style={{flex:.65,padding:"0 6px",textAlign:"center"}}>
                     <button onClick={()=>{setModal(m);setModalGrup("identitas");}}
                       style={{padding:"5px 10px",background:"#EFF6FF",color:"#1D4ED8",border:"1px solid #BFDBFE",borderRadius:7,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",whiteSpace:"nowrap"}}>
@@ -1953,6 +2008,7 @@
             }
           </div>
 
+          {/* Legend */}
           <div style={{marginTop:14,display:"flex",gap:16,flexWrap:"wrap",fontSize:11,color:"#64748B"}}>
             <span style={{color:"#059669"}}>● Lengkap (100%)</span>
             <span style={{color:"#D97706"}}>● Hampir (75–99%)</span>
@@ -1960,6 +2016,7 @@
             <span style={{color:"#DC2626"}}>● Perlu Dilengkapi (&lt;50%)</span>
           </div>
 
+          {/* Modal Detail */}
           {modal&&(
             <div onClick={()=>setModal(null)} style={{position:"fixed",inset:0,background:"rgba(15,23,42,.55)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
               <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:16,width:"100%",maxWidth:680,maxHeight:"90vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 60px rgba(0,0,0,.25)"}}>
@@ -1967,7 +2024,10 @@
                   <div>
                     <div style={{fontSize:10,fontWeight:700,color:"#64748B",letterSpacing:".08em",textTransform:"uppercase"}}>Detail Kendali Data</div>
                     <div style={{fontSize:17,fontWeight:800,color:"#0F172A",marginTop:4}}>{modal.nama}</div>
-                    <div style={{fontSize:12,color:"#94A3B8",marginTop:2}}>{modal.desa} · {modal.tipologi}</div>
+                    <div style={{fontSize:12,color:"#94A3B8",marginTop:2}}>
+                      {modal.desa} · {modal.tipologi}
+                      {isAdmin && modal.surveyor && <span style={{marginLeft:8,background:"#EFF6FF",color:"#1D4ED8",padding:"1px 8px",borderRadius:20,fontSize:11,fontWeight:600}}>👤 {modal.surveyor}</span>}
+                    </div>
                   </div>
                   <button onClick={()=>setModal(null)} style={{background:"#F1F5F9",border:"none",borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:16,color:"#64748B",lineHeight:1}}>✕</button>
                 </div>
