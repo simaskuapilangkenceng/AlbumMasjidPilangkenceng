@@ -1796,7 +1796,7 @@
       return <div style={{width:"100%",height:4,background:"#E5E7EB",borderRadius:3,marginTop:3}}><div style={{width:`${pct}%`,height:"100%",background:color,borderRadius:3}}/></div>;
     }
 
-    function TabKendaliData({ session }) {
+    function TabKendaliData({ session, allData = [], onOpenDetail }) {
       const isAdmin = session.level === "super";
 
       const [kdData,    setKdData]    = useState([]);
@@ -1997,11 +1997,20 @@
                     </div>
                   ))}
                   {/* Aksi */}
-                  <div style={{flex:.65,padding:"0 6px",textAlign:"center"}}>
+                  <div style={{flex:.65,padding:"0 6px",textAlign:"center",display:"flex",flexDirection:"column",gap:4,alignItems:"center"}}>
                     <button onClick={()=>{setModal(m);setModalGrup("identitas");}}
-                      style={{padding:"5px 10px",background:"#EFF6FF",color:"#1D4ED8",border:"1px solid #BFDBFE",borderRadius:7,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",whiteSpace:"nowrap"}}>
+                      style={{padding:"4px 10px",background:"#EFF6FF",color:"#1D4ED8",border:"1px solid #BFDBFE",borderRadius:7,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",whiteSpace:"nowrap",width:"100%"}}>
                       Detail →
                     </button>
+                    {onOpenDetail && (() => {
+                      const found = allData.find(d => d.namaMasjid === m.nama && d.desa === m.desa);
+                      return found ? (
+                        <button onClick={()=>{ setModal(null); onOpenDetail(found); }}
+                          style={{padding:"4px 10px",background:"#ECFDF5",color:"#065F46",border:"1px solid #6EE7B7",borderRadius:7,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",whiteSpace:"nowrap",width:"100%"}}>
+                          ✏️ Edit
+                        </button>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
               ))
@@ -2029,7 +2038,18 @@
                       {isAdmin && modal.surveyor && <span style={{marginLeft:8,background:"#EFF6FF",color:"#1D4ED8",padding:"1px 8px",borderRadius:20,fontSize:11,fontWeight:600}}>👤 {modal.surveyor}</span>}
                     </div>
                   </div>
-                  <button onClick={()=>setModal(null)} style={{background:"#F1F5F9",border:"none",borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:16,color:"#64748B",lineHeight:1}}>✕</button>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    {onOpenDetail && (() => {
+                      const found = allData.find(d => d.namaMasjid === modal.nama && d.desa === modal.desa);
+                      return found ? (
+                        <button onClick={()=>{ setModal(null); onOpenDetail(found); }}
+                          style={{padding:"6px 14px",background:"#1B4332",color:"#fff",border:"none",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",display:"flex",alignItems:"center",gap:5}}>
+                          ✏️ Edit Data
+                        </button>
+                      ) : null;
+                    })()}
+                    <button onClick={()=>setModal(null)} style={{background:"#F1F5F9",border:"none",borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:16,color:"#64748B",lineHeight:1}}>✕</button>
+                  </div>
                 </div>
                 <div style={{display:"flex",gap:6,padding:"12px 24px",borderBottom:"1px solid #F1F5F9",overflowX:"auto",flexShrink:0}}>
                   {modal.groups.map(g=>{
@@ -2189,7 +2209,7 @@
             {tab === "peta"      && <TabPeta      data={data} onSelect={setSelected}/>}
             {tab === "statistik" && <TabStatistik data={data}/>}
             {tab === "kiblat"    && <TabKiblat/>}
-            {tab === "kendali"   && adminSession && <TabKendaliData session={adminSession}/>}
+            {tab === "kendali"   && adminSession && <TabKendaliData session={adminSession} allData={data} onOpenDetail={setSelected}/>}
 
             <div style={{ marginTop:40, paddingTop:16, borderTop:"1px solid #e8e0d0", textAlign:"center", fontSize:11, color:"#9ca3af", lineHeight:1.8 }}>
               Direktori Masjid & Musholla · Kecamatan Pilangkenceng, Kabupaten Madiun<br/>
