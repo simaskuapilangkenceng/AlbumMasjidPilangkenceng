@@ -898,7 +898,8 @@
         editableFields().forEach(f => {
           if (f.type === "checkbox") {
             const v = (masjid[f.key] || "").trim();
-            init[f.key] = v !== "" && v.toLowerCase() !== "tidak" && v.toLowerCase() !== "tidak ada";
+            // Default Ada (true) jika kosong, kecuali eksplisit "Tidak Ada" / "Tidak"
+            init[f.key] = v === "" ? true : (v.toLowerCase() !== "tidak" && v.toLowerCase() !== "tidak ada");
           } else {
             init[f.key] = masjid[f.key] || "";
           }
@@ -920,7 +921,7 @@
           if (f.superOnly && !isSuper) return;
           if (f.type === "checkbox") {
             if (!!values[f.key] !== !!initial[f.key] && f.apiField)
-              changes[f.apiField] = values[f.key] ? "Ada" : "";
+              changes[f.apiField] = values[f.key] ? "Ada" : "Tidak Ada";
           } else {
             const n = (values[f.key] || "").trim(), o = (initial[f.key] || "").trim();
             if (n !== o && f.apiField) changes[f.apiField] = n;
@@ -2051,7 +2052,7 @@
                     <button onClick={()=>setModal(null)} style={{background:"#F1F5F9",border:"none",borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:16,color:"#64748B",lineHeight:1}}>✕</button>
                   </div>
                 </div>
-                <div style={{display:"flex",gap:6,padding:"12px 24px",borderBottom:"1px solid #F1F5F9",overflowX:"auto",flexShrink:0}}>
+                <div style={{display:"flex",gap:6,padding:"12px 24px",borderBottom:"1px solid #F1F5F9",flexWrap:"wrap",flexShrink:0}}>
                   {modal.groups.map(g=>{
                     const gd=KD_GROUPS.find(x=>x.id===g.id);
                     const act=modalGrup===g.id;
