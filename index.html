@@ -737,11 +737,30 @@
             </div>
             <div style={{ padding:"16px 20px", minHeight:280 }}>
               <div style={{ marginBottom:16 }}>
+                {/* Input galeri (multiple) */}
                 <input ref={fileInputRef} type="file" accept={["sertifWakaf","fotoAIW"].includes(activeKat) ? "application/pdf" : "image/*"} multiple onChange={handleFileChange} style={{ display:"none" }} id="foto-upload-input"/>
-                <label htmlFor="foto-upload-input" style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"10px 20px", borderRadius:10, background: uploading ? "#9ca3af" : "#1B4332", color:"white", cursor: uploading ? "not-allowed" : "pointer", fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif", pointerEvents: uploading ? "none" : "auto" }}>
-                  {uploading ? "⏳ Mengupload..." : `⬆️ Upload ${["sertifWakaf","fotoAIW"].includes(activeKat) ? "File PDF" : "Foto"} ${activeInfo?.label}`}
-                </label>
-                <span style={{ marginLeft:12, fontSize:11, color:"#9ca3af" }}>{["sertifWakaf","fotoAIW"].includes(activeKat) ? "PDF · maks 5MB" : "JPG/PNG/WebP · maks 5MB"}</span>
+                {/* Input kamera langsung (capture, single) */}
+                <input type="file" accept="image/*" capture="environment" onChange={handleFileChange} style={{ display:"none" }} id="foto-capture-input"/>
+
+                {["sertifWakaf","fotoAIW"].includes(activeKat) ? (
+                  <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+                    <label htmlFor="foto-upload-input" style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"10px 18px", borderRadius:10, background: uploading ? "#9ca3af" : "#1B4332", color:"white", cursor: uploading ? "not-allowed" : "pointer", fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif", pointerEvents: uploading ? "none" : "auto" }}>
+                      {uploading ? "⏳ Mengupload..." : `📁 Pilih File PDF ${activeInfo?.label}`}
+                    </label>
+                    <span style={{ fontSize:11, color:"#9ca3af" }}>PDF · maks 5MB</span>
+                  </div>
+                ) : (
+                  <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+                    <label htmlFor="foto-capture-input" style={{ display:"inline-flex", alignItems:"center", gap:7, padding:"10px 18px", borderRadius:10, background: uploading ? "#9ca3af" : "#1B4332", color:"white", cursor: uploading ? "not-allowed" : "pointer", fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif", pointerEvents: uploading ? "none" : "auto" }}>
+                      📷 Ambil Foto
+                    </label>
+                    <label htmlFor="foto-upload-input" style={{ display:"inline-flex", alignItems:"center", gap:7, padding:"10px 18px", borderRadius:10, background: uploading ? "#9ca3af" : "white", color: uploading ? "white" : "#1B4332", border:"1.5px solid #1B4332", cursor: uploading ? "not-allowed" : "pointer", fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif", pointerEvents: uploading ? "none" : "auto" }}>
+                      🖼️ Pilih dari Galeri
+                    </label>
+                    {uploading && <span style={{ fontSize:12, color:"#9ca3af" }}>⏳ Mengupload...</span>}
+                    {!uploading && <span style={{ fontSize:11, color:"#9ca3af" }}>JPG/PNG/WebP · maks 5MB</span>}
+                  </div>
+                )}
               </div>
               {activeUrls.length === 0 ? (
                 <div style={{ textAlign:"center", padding:"40px 20px", color:"#9ca3af", fontSize:13, background:"#f8f4ed", borderRadius:12, border:"2px dashed #e2d9c8" }}>
