@@ -2189,29 +2189,34 @@
 
 
     // ════════════════════════════════════════════════════════════
-    //  TAB SUPER ADMIN PANEL — Respons Cepat Tanpa Buka Script
+    //  TAB SUPER ADMIN PANEL v2 — Lengkap Jangka Panjang
     // ════════════════════════════════════════════════════════════
     function TabSuperAdminPanel({ session }) {
-      const [statusSistem, setStatusSistem] = React.useState(null);
-      const [daftarUser,   setDaftarUser]   = React.useState([]);
-      const [loadingBtn,   setLoadingBtn]   = React.useState("");
-      const [notif,        setNotif]        = React.useState(null);
-      const [showResetPw,  setShowResetPw]  = React.useState(false);
-      const [pwTarget,     setPwTarget]     = React.useState("");
-      const [pwBaru,       setPwBaru]       = React.useState("");
+      const [status,      setStatus]      = React.useState(null);
+      const [daftarUser,  setDaftarUser]  = React.useState([]);
+      const [dataCheck,   setDataCheck]   = React.useState(null);
+      const [loadingBtn,  setLoadingBtn]  = React.useState("");
+      const [notif,       setNotif]       = React.useState(null);
+      const [showResetPw, setShowResetPw] = React.useState(false);
+      const [showTambahUser, setShowTambahUser] = React.useState(false);
+      const [pwTarget,    setPwTarget]    = React.useState("");
+      const [pwBaru,      setPwBaru]      = React.useState("");
+      const [newUsername, setNewUsername] = React.useState("");
+      const [newPassword, setNewPassword] = React.useState("");
+      const [newNama,     setNewNama]     = React.useState("");
+      const [activeSection, setActiveSection] = React.useState("dashboard");
 
       function showNotif(ok, msg) {
         setNotif({ ok, msg });
-        setTimeout(() => setNotif(null), 5000);
+        setTimeout(() => setNotif(null), 6000);
       }
 
       async function callAction(subAction, extra) {
-        extra = extra || {};
         setLoadingBtn(subAction);
         try {
           const res  = await fetchWithTimeout(WEBAPP_URL, {
-            method: "POST", headers: { "Content-Type": "text/plain" },
-            body: JSON.stringify({ action: "superAdminAction", token: session.token, subAction, ...extra }),
+            method:"POST", headers:{"Content-Type":"text/plain"},
+            body: JSON.stringify({ action:"superAdminAction", token:session.token, subAction, ...(extra||{}) }),
           });
           const json = await res.json();
           setLoadingBtn("");
@@ -2223,245 +2228,380 @@
         }
       }
 
-      async function muatStatus() {
-        const json = await callAction("statusSistem");
-        if (json?.ok) setStatusSistem(json);
-        else showNotif(false, json?.error || "Gagal memuat status.");
+      async function muatSemua() {
+        const [s, u, d] = await Promise.all([
+          callAction("statusSistem"),
+          callAction("getDaftarUser"),
+          callAction("cekTanpaFolder"),
+        ]);
+        if (s?.ok) setStatus(s);
+        if (u?.ok) setDaftarUser(u.daftar || []);
+        if (d?.ok) setDataCheck(d);
       }
 
-      async function muatDaftarUser() {
-        const json = await callAction("getDaftarUser");
-        if (json?.ok) setDaftarUser(json.daftar || []);
-        else showNotif(false, json?.error || "Gagal memuat daftar user.");
-      }
+      React.useEffect(() => { muatSemua(); }, []);
 
-      React.useEffect(() => { muatStatus(); muatDaftarUser(); }, []);
-
-      async function handleResetToken() {
-        if (!window.confirm("Paksa logout SEMUA surveyor sekarang?\nMereka harus login ulang.")) return;
-        const json = await callAction("resetSemuaToken");
-        if (json?.ok) showNotif(true, "✅ " + json.message);
-        else showNotif(false, json?.error);
+      async function handleLogoutSemua() {
+        if (!window.confirm("Paksa logout SEMUA surveyor?\nMereka harus login ulang.")) return;
+        const j = await callAction("resetSemuaToken");
+        if (j?.ok) showNotif(true, "✅ " + j.message);
+        else showNotif(false, j?.error);
       }
 
       async function handleSyncDesa() {
-        const json = await callAction("syncDesa");
-        if (json?.ok) {
-          showNotif(true, "✅ " + json.message);
-          await muatDaftarUser();
-        } else showNotif(false, json?.error);
+        const j = await callAction("syncDesa");
+        if (j?.ok) { showNotif(true, "✅ " + j.message); const u = await callAction("getDaftarUser"); if(u?.ok) setDaftarUser(u.daftar||[]); }
+        else showNotif(false, j?.error);
+      }
+
+      async function handleProsesTanpaFolder() {
+        if (!dataCheck || dataCheck.tanpaFolder === 0) { showNotif(false, "Tidak ada masjid tanpa folder."); return; }
+        if (!window.confirm("Proses " + dataCheck.tanpaFolder + " masjid tanpa folder?\nProses ini membutuhkan 1-5 menit.")) return;
+        showNotif(true, "⏳ Sedang memproses... Harap tunggu, jangan tutup halaman.");
+        const j = await callAction("prosesTanpaFolder");
+        if (j?.ok) { showNotif(true, "✅ " + j.message); const d = await callAction("cekTanpaFolder"); if(d?.ok) setDataCheck(d); }
+        else showNotif(false, j?.error);
+      }
+
+      async function handleRetryPdf() {
+        if (!dataCheck || dataCheck.tanpaPdf === 0) { showNotif(false, "Tidak ada masjid yang perlu generate PDF."); return; }
+        if (!window.confirm("Generate ulang PDF untuk " + dataCheck.tanpaPdf + " masjid?\nProses ini membutuhkan 1-5 menit.")) return;
+        showNotif(true, "⏳ Sedang generate PDF... Harap tunggu.");
+        const j = await callAction("retrySemuaPdf");
+        if (j?.ok) { showNotif(true, "✅ " + j.message); const d = await callAction("cekTanpaFolder"); if(d?.ok) setDataCheck(d); }
+        else showNotif(false, j?.error);
       }
 
       async function handleResetPassword() {
         if (!pwTarget || !pwBaru) { showNotif(false, "Pilih user dan isi password baru."); return; }
-        const json = await callAction("resetPassword", { targetUsername: pwTarget, passwordBaru: pwBaru });
-        if (json?.ok) {
-          showNotif(true, "✅ " + json.message);
-          setShowResetPw(false); setPwTarget(""); setPwBaru("");
-        } else showNotif(false, json?.error);
+        if (pwBaru.length < 6)   { showNotif(false, "Password minimal 6 karakter."); return; }
+        const j = await callAction("resetPassword", { targetUsername:pwTarget, passwordBaru:pwBaru });
+        if (j?.ok) { showNotif(true, "✅ " + j.message); setShowResetPw(false); setPwTarget(""); setPwBaru(""); }
+        else showNotif(false, j?.error);
       }
 
-      const card = { background:"#fff", border:"1px solid #e2d9c8", borderRadius:14, padding:"18px 20px", marginBottom:14 };
-      const btn  = (color, disabled) => ({
-        padding:"10px 18px", borderRadius:10, border:"none", cursor: disabled ? "not-allowed" : "pointer",
-        fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif",
-        background: disabled ? "#e5e7eb" : color, color: disabled ? "#9ca3af" : "#fff",
-        opacity: disabled ? .7 : 1, transition:"all .2s",
-      });
-      const inp = { width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #e2d9c8",
-                    fontSize:13, fontFamily:"'DM Sans',sans-serif", outline:"none", background:"#fff",
-                    color:"#1a1a1a", boxSizing:"border-box", marginTop:6 };
+      async function handleTambahUser() {
+        if (!newUsername || !newPassword || !newNama) { showNotif(false, "Semua field wajib diisi."); return; }
+        const j = await callAction("tambahUser", { username:newUsername.trim(), password:newPassword, nama:newNama.trim() });
+        if (j?.ok) {
+          showNotif(true, "✅ Akun " + newUsername + " berhasil dibuat.");
+          setShowTambahUser(false); setNewUsername(""); setNewPassword(""); setNewNama("");
+          const u = await callAction("getDaftarUser"); if(u?.ok) setDaftarUser(u.daftar||[]);
+        } else showNotif(false, j?.error);
+      }
 
-      const AKSI = [
-        {
-          id:    "resetSemuaToken",
-          icon:  "🚪",
-          judul: "Paksa Logout Semua Surveyor",
-          ket:   "Gunakan jika banyak surveyor tiba-tiba tidak bisa mengakses sistem, atau ada dugaan akun dipakai orang lain. Semua surveyor akan keluar otomatis dan harus login ulang.",
-          warna: "#b91c1c",
-          label: "Paksa Logout Sekarang",
-          aksi:  handleResetToken,
-          konfirmasi: true,
-        },
-        {
-          id:    "syncDesa",
-          icon:  "🔄",
-          judul: "Sync Desa Surveyor",
-          ket:   "Gunakan jika ada surveyor yang baru menambahkan data masjid di desa baru, tapi akses desanya belum diperbarui. Proses ini memperbarui daftar desa setiap surveyor secara otomatis.",
-          warna: "#0369a1",
-          label: "Sync Desa Sekarang",
-          aksi:  handleSyncDesa,
-        },
-        {
-          id:    "getDaftarUser",
-          icon:  "👥",
-          judul: "Refresh Daftar User",
-          ket:   "Muat ulang daftar semua akun surveyor yang terdaftar beserta status desa dan keamanan passwordnya.",
-          warna: "#1B4332",
-          label: "Refresh Daftar",
-          aksi:  async () => { await muatDaftarUser(); showNotif(true, "✅ Daftar user diperbarui."); },
-        },
-        {
-          id:    "resetPassword",
-          icon:  "🔑",
-          judul: "Reset Password Surveyor",
-          ket:   "Gunakan jika surveyor lupa password dan tidak bisa login. Pilih nama surveyor lalu masukkan password baru minimal 6 karakter. Beritahu password baru ke surveyor yang bersangkutan.",
-          warna: "#92400e",
-          label: "Buka Form Reset Password",
-          aksi:  () => setShowResetPw(true),
-        },
-        {
-          id:    "statusSistem",
-          icon:  "📡",
-          judul: "Cek Status Sistem",
-          ket:   "Tampilkan informasi terkini: jumlah akun, token aktif, total data masjid, dan waktu server. Gunakan untuk memastikan sistem berjalan normal.",
-          warna: "#4f46e5",
-          label: "Cek Status",
-          aksi:  async () => { await muatStatus(); showNotif(true, "✅ Status sistem diperbarui."); },
-        },
+      const C = {
+        card: { background:"#fff", border:"1px solid #e2d9c8", borderRadius:14, padding:"16px 18px", marginBottom:12 },
+        inp:  { width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #e2d9c8", fontSize:13, fontFamily:"'DM Sans',sans-serif", outline:"none", background:"#fff", color:"#1a1a1a", boxSizing:"border-box", marginTop:5 },
+        btn:  (bg, dis) => ({ padding:"9px 16px", borderRadius:9, border:"none", cursor:dis?"not-allowed":"pointer", fontSize:12.5, fontWeight:600, fontFamily:"'DM Sans',sans-serif", background:dis?"#e5e7eb":bg, color:dis?"#9ca3af":"#fff", opacity:dis?.7:1, transition:"all .15s", whiteSpace:"nowrap" }),
+        sec:  { fontSize:11, fontWeight:700, color:"#6b7280", textTransform:"uppercase", letterSpacing:".06em", marginBottom:10 },
+      };
+
+      const NAVS = [
+        { id:"dashboard", icon:"📡", label:"Dashboard" },
+        { id:"data",      icon:"🗂️",  label:"Data Masjid" },
+        { id:"user",      icon:"👥", label:"Kelola User" },
+        { id:"panduan",   icon:"📖", label:"Panduan" },
       ];
 
+      const healthColor = !status ? "#6b7280" :
+        (dataCheck?.tanpaFolder > 0 || dataCheck?.tanpaPdf > 0 || dataCheck?.error > 0) ? "#b91c1c" : "#15803d";
+      const healthLabel = !status ? "Memuat..." :
+        (dataCheck?.tanpaFolder > 0 || dataCheck?.tanpaPdf > 0 || dataCheck?.error > 0) ? "⚠️ Perlu Tindakan" : "✅ Sistem Normal";
+
       return (
-        <div style={{ maxWidth:700, margin:"0 auto", padding:"8px 0 40px" }}>
+        <div style={{ maxWidth:720, margin:"0 auto", padding:"8px 0 40px" }}>
 
           {/* Header */}
-          <div style={{ marginBottom:20 }}>
-            <div style={{ fontFamily:"'Playfair Display',serif", fontSize:22, fontWeight:700, color:"#1B4332" }}>⚙️ Panel Super Admin</div>
-            <div style={{ fontSize:13, color:"#6b7280", marginTop:4 }}>Respons cepat gangguan sistem — tanpa perlu membuka Google Apps Script</div>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16, flexWrap:"wrap", gap:8 }}>
+            <div>
+              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:20, fontWeight:700, color:"#1B4332" }}>⚙️ Panel Super Admin</div>
+              <div style={{ fontSize:12, color:"#6b7280", marginTop:3 }}>Respons cepat tanpa membuka Google Apps Script</div>
+            </div>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              <span style={{ fontSize:12, fontWeight:600, color:healthColor, background:healthColor==="#15803d"?"#dcfce7":healthColor==="#b91c1c"?"#fee2e2":"#f3f4f6", padding:"4px 12px", borderRadius:20, border:"1px solid " + (healthColor==="b91c1c"?"#fca5a5":"#e5e7eb") }}>{healthLabel}</span>
+              <button onClick={muatSemua} disabled={!!loadingBtn} style={C.btn("#1B4332", !!loadingBtn)}>
+                {loadingBtn?"⏳":"🔄"} Refresh
+              </button>
+            </div>
           </div>
 
           {/* Notifikasi */}
           {notif && (
-            <div style={{ padding:"12px 16px", borderRadius:10, marginBottom:16, fontSize:13, fontWeight:500,
-                          background: notif.ok ? "#dcfce7" : "#fee2e2",
-                          color:      notif.ok ? "#15803d" : "#b91c1c",
-                          border:     "1px solid " + (notif.ok ? "#86efac" : "#fca5a5") }}>
+            <div style={{ padding:"11px 14px", borderRadius:10, marginBottom:14, fontSize:13, fontWeight:500, lineHeight:1.5,
+              background:notif.ok?"#dcfce7":"#fee2e2", color:notif.ok?"#15803d":"#b91c1c",
+              border:"1px solid " + (notif.ok?"#86efac":"#fca5a5") }}>
               {notif.msg}
             </div>
           )}
 
-          {/* Status Sistem */}
-          {statusSistem && (
-            <div style={{ ...card, background:"#f0fdf4", border:"1px solid #86efac", marginBottom:20 }}>
-              <div style={{ fontSize:12, fontWeight:700, color:"#15803d", marginBottom:10, textTransform:"uppercase", letterSpacing:".05em" }}>📡 Status Sistem Saat Ini</div>
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:10 }}>
-                {[
-                  { label:"Total Akun",     val: statusSistem.totalAkun   },
-                  { label:"Sesi Aktif",     val: statusSistem.tokenAktif  },
-                  { label:"Data Masjid",    val: statusSistem.totalData   },
-                  { label:"Waktu Server",   val: statusSistem.waktuServer },
-                ].map(s => (
-                  <div key={s.label} style={{ background:"#fff", borderRadius:8, padding:"10px 12px", border:"1px solid #bbf7d0" }}>
-                    <div style={{ fontSize:11, color:"#6b7280" }}>{s.label}</div>
-                    <div style={{ fontSize:15, fontWeight:700, color:"#1B4332", marginTop:2 }}>{s.val}</div>
+          {/* Nav Tab */}
+          <div style={{ display:"flex", gap:6, marginBottom:16, flexWrap:"wrap" }}>
+            {NAVS.map(n => (
+              <button key={n.id} onClick={() => setActiveSection(n.id)}
+                style={{ padding:"7px 14px", borderRadius:20, border:"1.5px solid", cursor:"pointer", fontSize:12.5, fontWeight:600, fontFamily:"'DM Sans',sans-serif", transition:"all .15s",
+                  background: activeSection===n.id ? "#1B4332" : "#fff",
+                  color:      activeSection===n.id ? "#fff"    : "#374151",
+                  borderColor:activeSection===n.id ? "#1B4332" : "#e2d9c8" }}>
+                {n.icon} {n.label}
+                {n.id==="data" && dataCheck && (dataCheck.tanpaFolder+dataCheck.tanpaPdf+dataCheck.error)>0 &&
+                  <span style={{ marginLeft:6, background:"#ef4444", color:"#fff", borderRadius:20, fontSize:10, padding:"1px 6px", fontWeight:700 }}>
+                    {dataCheck.tanpaFolder+dataCheck.tanpaPdf+dataCheck.error}
+                  </span>
+                }
+              </button>
+            ))}
+          </div>
+
+          {/* ── DASHBOARD ─────────────────────────────────────── */}
+          {activeSection === "dashboard" && (<>
+            {/* Stat cards */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:10, marginBottom:14 }}>
+              {[
+                { label:"Total Masjid/Musholla", val: dataCheck?.totalData ?? "—",   color:"#1B4332" },
+                { label:"Data Selesai",           val: dataCheck?.selesai   ?? "—",   color:"#15803d" },
+                { label:"Tanpa Folder",           val: dataCheck?.tanpaFolder?? "—",  color: dataCheck?.tanpaFolder>0?"#b91c1c":"#15803d" },
+                { label:"PDF Belum Ada",          val: dataCheck?.tanpaPdf  ?? "—",   color: dataCheck?.tanpaPdf>0?"#b91c1c":"#15803d" },
+                { label:"Akun Surveyor",          val: daftarUser.length    || "—",   color:"#0369a1" },
+                { label:"Sesi Aktif",             val: status?.tokenAktif   ?? "—",   color:"#374151" },
+              ].map(s => (
+                <div key={s.label} style={{ background:"#fff", border:"1px solid #e2d9c8", borderRadius:10, padding:"12px 14px" }}>
+                  <div style={{ fontSize:11, color:"#6b7280", lineHeight:1.4 }}>{s.label}</div>
+                  <div style={{ fontSize:22, fontWeight:700, color:s.color, marginTop:4 }}>{s.val}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Info server */}
+            {status && (
+              <div style={{ ...C.card, background:"#f0fdf4", border:"1px solid #86efac", padding:"12px 16px", marginBottom:14 }}>
+                <div style={{ fontSize:12, color:"#374151" }}>🕐 Waktu server: <strong>{status.waktuServer}</strong></div>
+              </div>
+            )}
+
+            {/* Aksi darurat cepat */}
+            <div style={C.sec}>🚨 Aksi Darurat Cepat</div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))", gap:10, marginBottom:4 }}>
+              {[
+                { label:"🚪 Paksa Logout Semua",   desc:"Hapus semua sesi aktif",        color:"#b91c1c", aksi:handleLogoutSemua,    id:"resetSemuaToken" },
+                { label:"🔄 Sync Desa Surveyor",   desc:"Update akses desa surveyor",     color:"#0369a1", aksi:handleSyncDesa,       id:"syncDesa"        },
+                { label:"🗂️ Perbaiki Tanpa Folder", desc: (dataCheck?.tanpaFolder||0) + " masjid perlu diproses", color:dataCheck?.tanpaFolder>0?"#92400e":"#6b7280", aksi:handleProsesTanpaFolder, id:"prosesTanpaFolder" },
+                { label:"📄 Generate Ulang PDF",   desc: (dataCheck?.tanpaPdf||0) + " masjid belum ada PDF",     color:dataCheck?.tanpaPdf>0?"#5b21b6":"#6b7280",    aksi:handleRetryPdf,          id:"retrySemuaPdf"    },
+              ].map(a => (
+                <button key={a.id} onClick={a.aksi} disabled={loadingBtn===a.id}
+                  style={{ ...C.btn(a.color, loadingBtn===a.id), display:"flex", flexDirection:"column", alignItems:"flex-start", gap:4, padding:"12px 14px", borderRadius:12, textAlign:"left", width:"100%" }}>
+                  <span style={{ fontSize:13 }}>{loadingBtn===a.id ? "⏳ Proses..." : a.label}</span>
+                  <span style={{ fontSize:11, opacity:.8, fontWeight:400 }}>{a.desc}</span>
+                </button>
+              ))}
+            </div>
+          </>)}
+
+          {/* ── DATA MASJID ───────────────────────────────────── */}
+          {activeSection === "data" && (<>
+            <div style={C.sec}>🗂️ Status Data Masjid</div>
+
+            {/* Ringkasan */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))", gap:9, marginBottom:14 }}>
+              {[
+                { label:"Total Data",    val:dataCheck?.totalData??0,    bg:"#f0fdf4", c:"#15803d" },
+                { label:"✅ Selesai",    val:dataCheck?.selesai??0,      bg:"#f0fdf4", c:"#15803d" },
+                { label:"⚠️ Error",      val:dataCheck?.error??0,        bg: dataCheck?.error>0?"#fee2e2":"#f9fafb", c:dataCheck?.error>0?"#b91c1c":"#6b7280" },
+                { label:"📁 Tanpa Folder",val:dataCheck?.tanpaFolder??0, bg: dataCheck?.tanpaFolder>0?"#fff7ed":"#f9fafb", c:dataCheck?.tanpaFolder>0?"#92400e":"#6b7280" },
+                { label:"📄 Tanpa PDF",  val:dataCheck?.tanpaPdf??0,     bg: dataCheck?.tanpaPdf>0?"#f5f3ff":"#f9fafb", c:dataCheck?.tanpaPdf>0?"#5b21b6":"#6b7280" },
+              ].map(s => (
+                <div key={s.label} style={{ background:s.bg, border:"1px solid #e2d9c8", borderRadius:10, padding:"12px", textAlign:"center" }}>
+                  <div style={{ fontSize:11, color:"#6b7280" }}>{s.label}</div>
+                  <div style={{ fontSize:24, fontWeight:700, color:s.c }}>{s.val}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Tombol aksi */}
+            <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:16 }}>
+              <button onClick={handleProsesTanpaFolder} disabled={!!loadingBtn || !dataCheck?.tanpaFolder}
+                style={C.btn(dataCheck?.tanpaFolder>0?"#92400e":"#9ca3af", !!loadingBtn || !dataCheck?.tanpaFolder)}>
+                {loadingBtn==="prosesTanpaFolder"?"⏳ Memproses...":"🗂️ Perbaiki Semua Masjid Tanpa Folder"}
+              </button>
+              <button onClick={handleRetryPdf} disabled={!!loadingBtn || !dataCheck?.tanpaPdf}
+                style={C.btn(dataCheck?.tanpaPdf>0?"#5b21b6":"#9ca3af", !!loadingBtn || !dataCheck?.tanpaPdf)}>
+                {loadingBtn==="retrySemuaPdf"?"⏳ Generate PDF...":"📄 Generate Ulang Semua PDF"}
+              </button>
+              <button onClick={async()=>{ const d=await callAction("cekTanpaFolder"); if(d?.ok) setDataCheck(d); showNotif(true,"✅ Data diperbarui."); }}
+                disabled={!!loadingBtn} style={C.btn("#1B4332", !!loadingBtn)}>
+                🔄 Refresh Status
+              </button>
+            </div>
+
+            {/* Daftar masjid bermasalah */}
+            {dataCheck?.daftarTanpaFolder?.length > 0 && (
+              <div style={C.card}>
+                <div style={{ ...C.sec, marginBottom:8 }}>📁 Masjid tanpa folder (maks 20 ditampilkan)</div>
+                {dataCheck.daftarTanpaFolder.map((m,i) => (
+                  <div key={i} style={{ display:"grid", gridTemplateColumns:"40px 1fr auto", gap:8, padding:"7px 0", borderBottom:"1px solid #f3f4f6", alignItems:"center" }}>
+                    <span style={{ fontSize:11, color:"#9ca3af" }}>Baris {m.rowNum}</span>
+                    <div>
+                      <div style={{ fontSize:12.5, fontWeight:600, color:"#1a1a1a" }}>{m.nama}</div>
+                      <div style={{ fontSize:11, color:"#6b7280" }}>{m.desa} · {m.status||"Belum diproses"}</div>
+                    </div>
+                    <span style={{ fontSize:10, background:"#fff7ed", color:"#92400e", padding:"2px 7px", borderRadius:20, fontWeight:600 }}>No Folder</span>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Tombol-tombol aksi */}
-          <div style={{ fontSize:12, fontWeight:700, color:"#6b7280", marginBottom:10, textTransform:"uppercase", letterSpacing:".05em" }}>🛠️ Aksi Darurat</div>
-          {AKSI.map(a => (
-            <div key={a.id} style={card}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontSize:15, fontWeight:700, color:"#1a1a1a", marginBottom:6 }}>{a.icon} {a.judul}</div>
-                  <div style={{ fontSize:12.5, color:"#6b7280", lineHeight:1.6 }}>{a.ket}</div>
-                </div>
-                <button
-                  onClick={a.aksi}
-                  disabled={loadingBtn === a.id}
-                  style={{ ...btn(a.warna, loadingBtn === a.id), whiteSpace:"nowrap", flexShrink:0 }}>
-                  {loadingBtn === a.id ? "⏳ Proses..." : a.label}
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {/* Form Reset Password */}
-          {showResetPw && (
-            <div style={{ ...card, border:"2px solid #92400e", background:"#fffbeb" }}>
-              <div style={{ fontSize:15, fontWeight:700, color:"#92400e", marginBottom:14 }}>🔑 Reset Password Surveyor</div>
-              <label style={{ fontSize:12, color:"#374151", fontWeight:600 }}>Pilih Surveyor</label>
-              <select value={pwTarget} onChange={e => setPwTarget(e.target.value)} style={{ ...inp, marginBottom:12 }}>
-                <option value="">-- Pilih username surveyor --</option>
-                {daftarUser.filter(u => u.level === "editor").map(u => (
-                  <option key={u.username} value={u.username}>{u.username} — {u.nama}</option>
+            {dataCheck?.daftarTanpaPdf?.length > 0 && (
+              <div style={C.card}>
+                <div style={{ ...C.sec, marginBottom:8 }}>📄 Masjid tanpa PDF (maks 20 ditampilkan)</div>
+                {dataCheck.daftarTanpaPdf.map((m,i) => (
+                  <div key={i} style={{ display:"grid", gridTemplateColumns:"40px 1fr auto", gap:8, padding:"7px 0", borderBottom:"1px solid #f3f4f6", alignItems:"center" }}>
+                    <span style={{ fontSize:11, color:"#9ca3af" }}>Baris {m.rowNum}</span>
+                    <div>
+                      <div style={{ fontSize:12.5, fontWeight:600, color:"#1a1a1a" }}>{m.nama}</div>
+                      <div style={{ fontSize:11, color:"#6b7280" }}>{m.desa}</div>
+                    </div>
+                    <span style={{ fontSize:10, background:"#f5f3ff", color:"#5b21b6", padding:"2px 7px", borderRadius:20, fontWeight:600 }}>No PDF</span>
+                  </div>
                 ))}
-              </select>
-              <label style={{ fontSize:12, color:"#374151", fontWeight:600 }}>Password Baru (min. 6 karakter)</label>
-              <input type="text" value={pwBaru} onChange={e => setPwBaru(e.target.value)}
-                placeholder="Contoh: SurveyorBaru2026"
-                style={{ ...inp, marginBottom:14 }} />
-              <div style={{ display:"flex", gap:10 }}>
-                <button onClick={handleResetPassword} disabled={loadingBtn==="resetPassword"}
-                  style={btn("#92400e", loadingBtn==="resetPassword")}>
-                  {loadingBtn==="resetPassword" ? "⏳ Menyimpan..." : "✅ Simpan Password Baru"}
+              </div>
+            )}
+
+            {dataCheck && dataCheck.tanpaFolder===0 && dataCheck.tanpaPdf===0 && (
+              <div style={{ textAlign:"center", padding:"30px 20px", color:"#15803d", background:"#f0fdf4", borderRadius:12, border:"1px solid #86efac" }}>
+                <div style={{ fontSize:28, marginBottom:8 }}>✅</div>
+                <div style={{ fontSize:14, fontWeight:600 }}>Semua data masjid lengkap!</div>
+                <div style={{ fontSize:12, color:"#6b7280", marginTop:4 }}>Folder dan PDF sudah tersedia untuk semua masjid.</div>
+              </div>
+            )}
+          </>)}
+
+          {/* ── KELOLA USER ───────────────────────────────────── */}
+          {activeSection === "user" && (<>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+              <div style={C.sec}>👥 Daftar Akun ({daftarUser.length})</div>
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={() => setShowTambahUser(!showTambahUser)} style={C.btn("#1B4332", false)}>➕ Tambah Akun</button>
+                <button onClick={handleSyncDesa} disabled={loadingBtn==="syncDesa"} style={C.btn("#0369a1", loadingBtn==="syncDesa")}>
+                  {loadingBtn==="syncDesa"?"⏳ Sync...":"🔄 Sync Desa"}
                 </button>
-                <button onClick={() => { setShowResetPw(false); setPwTarget(""); setPwBaru(""); }}
-                  style={{ ...btn("#6b7280", false) }}>
-                  Batal
+                <button onClick={handleLogoutSemua} disabled={loadingBtn==="resetSemuaToken"} style={C.btn("#b91c1c", loadingBtn==="resetSemuaToken")}>
+                  🚪 Logout Semua
                 </button>
               </div>
             </div>
-          )}
 
-          {/* Daftar User */}
-          <div style={{ ...card, marginTop:6 }}>
-            <div style={{ fontSize:12, fontWeight:700, color:"#6b7280", marginBottom:12, textTransform:"uppercase", letterSpacing:".05em" }}>👥 Daftar Akun Terdaftar</div>
-            {daftarUser.length === 0 ? (
-              <div style={{ fontSize:13, color:"#9ca3af", textAlign:"center", padding:20 }}>Memuat...</div>
-            ) : (
+            {/* Form tambah akun */}
+            {showTambahUser && (
+              <div style={{ ...C.card, background:"#f0fdf4", border:"1.5px solid #86efac", marginBottom:14 }}>
+                <div style={{ fontSize:14, fontWeight:700, color:"#15803d", marginBottom:12 }}>➕ Tambah Akun Surveyor Baru</div>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+                  <div>
+                    <label style={{ fontSize:12, color:"#374151", fontWeight:600 }}>Nama Lengkap (sesuai data di sheet)</label>
+                    <input type="text" value={newNama} onChange={e=>setNewNama(e.target.value)} placeholder="Contoh: FATCHUL AZIZ" style={C.inp}/>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:12, color:"#374151", fontWeight:600 }}>Username (4-20 karakter)</label>
+                    <input type="text" value={newUsername} onChange={e=>setNewUsername(e.target.value)} placeholder="Contoh: fatchulaziz" style={C.inp}/>
+                  </div>
+                </div>
+                <label style={{ fontSize:12, color:"#374151", fontWeight:600, display:"block", marginTop:10 }}>Password Awal (min. 6 karakter)</label>
+                <input type="text" value={newPassword} onChange={e=>setNewPassword(e.target.value)} placeholder="Contoh: R@hasia2026" style={{ ...C.inp, marginBottom:12 }}/>
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={handleTambahUser} disabled={loadingBtn==="tambahUser"} style={C.btn("#15803d", loadingBtn==="tambahUser")}>
+                    {loadingBtn==="tambahUser"?"⏳ Menyimpan...":"✅ Simpan Akun"}
+                  </button>
+                  <button onClick={()=>setShowTambahUser(false)} style={C.btn("#6b7280", false)}>Batal</button>
+                </div>
+              </div>
+            )}
+
+            {/* Form reset password */}
+            {showResetPw && (
+              <div style={{ ...C.card, background:"#fffbeb", border:"1.5px solid #fbbf24", marginBottom:14 }}>
+                <div style={{ fontSize:14, fontWeight:700, color:"#92400e", marginBottom:12 }}>🔑 Reset Password Surveyor</div>
+                <label style={{ fontSize:12, color:"#374151", fontWeight:600 }}>Pilih Surveyor</label>
+                <select value={pwTarget} onChange={e=>setPwTarget(e.target.value)} style={{ ...C.inp, marginBottom:10 }}>
+                  <option value="">-- Pilih username --</option>
+                  {daftarUser.filter(u=>u.level!=="super").map(u=>(
+                    <option key={u.username} value={u.username}>{u.username} — {u.nama}</option>
+                  ))}
+                </select>
+                <label style={{ fontSize:12, color:"#374151", fontWeight:600 }}>Password Baru (min. 6 karakter)</label>
+                <input type="text" value={pwBaru} onChange={e=>setPwBaru(e.target.value)} placeholder="Contoh: SurveyorBaru2026" style={{ ...C.inp, marginBottom:12 }}/>
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={handleResetPassword} disabled={loadingBtn==="resetPassword"} style={C.btn("#92400e", loadingBtn==="resetPassword")}>
+                    {loadingBtn==="resetPassword"?"⏳ Menyimpan...":"✅ Simpan Password Baru"}
+                  </button>
+                  <button onClick={()=>{setShowResetPw(false);setPwTarget("");setPwBaru("");}} style={C.btn("#6b7280",false)}>Batal</button>
+                </div>
+              </div>
+            )}
+
+            {/* Tabel user */}
+            <div style={C.card}>
               <div style={{ overflowX:"auto" }}>
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
                   <thead>
                     <tr style={{ borderBottom:"2px solid #e2d9c8" }}>
-                      {["Username","Nama","Level","Desa","Password"].map(h => (
-                        <th key={h} style={{ padding:"6px 10px", textAlign:"left", color:"#6b7280", fontWeight:700, whiteSpace:"nowrap" }}>{h}</th>
+                      {["Username","Nama","Level","Desa","Password","Aksi"].map(h=>(
+                        <th key={h} style={{ padding:"7px 10px", textAlign:"left", color:"#6b7280", fontWeight:700, whiteSpace:"nowrap" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {daftarUser.map((u, i) => (
-                      <tr key={u.username} style={{ borderBottom:"1px solid #f3f4f6", background: i%2===0?"#fff":"#fafaf7" }}>
+                    {daftarUser.map((u,i) => (
+                      <tr key={u.username} style={{ borderBottom:"1px solid #f3f4f6", background:i%2===0?"#fff":"#fafaf7" }}>
                         <td style={{ padding:"8px 10px", fontWeight:600, color:"#1B4332" }}>{u.username}</td>
-                        <td style={{ padding:"8px 10px", color:"#374151" }}>{u.nama}</td>
+                        <td style={{ padding:"8px 10px", color:"#374151", fontSize:11.5 }}>{u.nama}</td>
                         <td style={{ padding:"8px 10px" }}>
-                          <span style={{ padding:"2px 8px", borderRadius:20, fontSize:11, fontWeight:600,
-                            background: u.level==="super" ? "#fef9c3" : u.level==="editor" ? "#dbeafe" : "#f3f4f6",
-                            color:      u.level==="super" ? "#854d0e" : u.level==="editor" ? "#1d4ed8" : "#6b7280" }}>
+                          <span style={{ padding:"2px 8px", borderRadius:20, fontSize:10.5, fontWeight:600,
+                            background:u.level==="super"?"#fef9c3":u.level==="editor"?"#dbeafe":"#f3f4f6",
+                            color:     u.level==="super"?"#854d0e":u.level==="editor"?"#1d4ed8":"#6b7280" }}>
                             {u.level}
                           </span>
                         </td>
-                        <td style={{ padding:"8px 10px", color:"#6b7280", fontSize:11 }}>{u.desa || "Semua"}</td>
+                        <td style={{ padding:"8px 10px", color:"#6b7280", fontSize:11 }}>{u.desa||"Semua"}</td>
+                        <td style={{ padding:"8px 10px", fontSize:11 }}>{u.pwStatus}</td>
                         <td style={{ padding:"8px 10px" }}>
-                          <span style={{ fontSize:11 }}>{u.pwStatus}</span>
+                          {u.level !== "super" && (
+                            <button onClick={()=>{setPwTarget(u.username);setShowResetPw(true);setActiveSection("user");}}
+                              style={{ padding:"4px 10px", borderRadius:8, border:"1px solid #e2d9c8", background:"#fff", cursor:"pointer", fontSize:11, color:"#374151", fontFamily:"'DM Sans',sans-serif" }}>
+                              🔑 Reset PW
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            )}
-          </div>
+            </div>
+          </>)}
 
-          {/* Panduan singkat */}
-          <div style={{ ...card, background:"#f8fafc", border:"1px solid #cbd5e1", marginTop:6 }}>
-            <div style={{ fontSize:12, fontWeight:700, color:"#475569", marginBottom:10, textTransform:"uppercase", letterSpacing:".05em" }}>📖 Panduan Cepat — Saat Terjadi Masalah</div>
+          {/* ── PANDUAN ───────────────────────────────────────── */}
+          {activeSection === "panduan" && (<>
+            <div style={C.sec}>📖 Panduan Respons Cepat</div>
             {[
-              { masalah:"Surveyor tidak bisa login",           solusi:"Klik Reset Password → pilih nama surveyor → beri password baru" },
-              { masalah:"Semua surveyor tiba-tiba keluar",     solusi:"Normal jika sudah 8 jam. Jika tidak wajar, cek Status Sistem dulu" },
-              { masalah:"Surveyor tidak bisa akses desa baru", solusi:"Klik Sync Desa Surveyor → otomatis diperbarui" },
-              { masalah:"Ada dugaan akun disalahgunakan",      solusi:"Klik Paksa Logout Semua → semua sesi dihapus → minta login ulang" },
-              { masalah:"Sistem tidak merespons",              solusi:"Tunggu 30 detik (GAS cold start) → coba lagi. Jika berlanjut, cek status.google.com" },
-            ].map((p, i) => (
-              <div key={i} style={{ display:"grid", gridTemplateColumns:"1fr 1.5fr", gap:8, padding:"8px 0", borderBottom: i<4?"1px solid #e2e8f0":"none", alignItems:"start" }}>
-                <div style={{ fontSize:12, color:"#ef4444", fontWeight:600 }}>⚠️ {p.masalah}</div>
-                <div style={{ fontSize:12, color:"#374151" }}>→ {p.solusi}</div>
+              { emoji:"🚪", masalah:"Semua / banyak surveyor tiba-tiba tidak bisa login", solusi:"Dashboard → Aksi Darurat → Paksa Logout Semua → minta surveyor login ulang dengan password masing-masing.", urgensi:"tinggi" },
+              { emoji:"🔑", masalah:"Surveyor lupa password / tidak bisa login", solusi:"Kelola User → klik 🔑 Reset PW di baris nama surveyor → isi password baru → beritahu surveyor via WhatsApp.", urgensi:"sedang" },
+              { emoji:"📁", masalah:"Surveyor tidak bisa upload foto (folder belum ada)", solusi:"Data Masjid → lihat angka Tanpa Folder → klik Perbaiki Semua Masjid Tanpa Folder. Tunggu 1-5 menit.", urgensi:"tinggi" },
+              { emoji:"📄", masalah:"PDF masjid belum terbuat / tidak bisa dicetak", solusi:"Data Masjid → lihat angka Tanpa PDF → klik Generate Ulang Semua PDF. Tunggu 1-5 menit.", urgensi:"sedang" },
+              { emoji:"🔄", masalah:"Surveyor tidak bisa akses desa yang baru disurvei", solusi:"Dashboard → Aksi Darurat → Sync Desa Surveyor. Otomatis memperbarui akses semua surveyor.", urgensi:"rendah" },
+              { emoji:"➕", masalah:"Ada surveyor baru yang perlu didaftarkan", solusi:"Kelola User → Tambah Akun → isi Nama (harus persis sama dengan di Google Form), Username, Password → Simpan.", urgensi:"rendah" },
+              { emoji:"📡", masalah:"Tidak yakin apakah sistem berjalan normal", solusi:"Lihat status di pojok kanan atas: ✅ Sistem Normal artinya semua baik. ⚠️ Perlu Tindakan artinya ada yang perlu diperbaiki.", urgensi:"info" },
+              { emoji:"⏳", masalah:"Tombol sudah diklik tapi tidak ada respons &gt;1 menit", solusi:"GAS (server backend) sedang cold start. Tunggu 30 detik lalu klik Refresh. Jika tetap tidak ada respons, cek koneksi internet.", urgensi:"info" },
+            ].map((p,i) => (
+              <div key={i} style={{ ...C.card, padding:"13px 16px", borderLeft:"4px solid " + (p.urgensi==="tinggi"?"#ef4444":p.urgensi==="sedang"?"#f59e0b":p.urgensi==="rendah"?"#3b82f6":"#6b7280"), borderRadius:"0 12px 12px 0" }}>
+                <div style={{ fontSize:14, fontWeight:700, color:"#1a1a1a", marginBottom:5 }}>{p.emoji} {p.masalah}</div>
+                <div style={{ fontSize:12.5, color:"#374151", lineHeight:1.6 }}>→ {p.solusi}</div>
+                <span style={{ fontSize:10.5, fontWeight:600, marginTop:6, display:"inline-block", padding:"2px 8px", borderRadius:20,
+                  background:p.urgensi==="tinggi"?"#fee2e2":p.urgensi==="sedang"?"#fef3c7":p.urgensi==="rendah"?"#dbeafe":"#f3f4f6",
+                  color:     p.urgensi==="tinggi"?"#b91c1c":p.urgensi==="sedang"?"#92400e":p.urgensi==="rendah"?"#1d4ed8":"#6b7280" }}>
+                  {p.urgensi==="tinggi"?"🔴 Urgensi Tinggi":p.urgensi==="sedang"?"🟡 Urgensi Sedang":p.urgensi==="rendah"?"🔵 Prioritas Rendah":"ℹ️ Info"}
+                </span>
               </div>
             ))}
-          </div>
+          </>)}
 
         </div>
       );
