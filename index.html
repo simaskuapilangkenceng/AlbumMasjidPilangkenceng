@@ -2263,6 +2263,21 @@
         else showNotif(false, j?.error);
       }
 
+      async function handleFixStatus() {
+        const j = await callAction("fixStatusStuck");
+        if (j?.ok) {
+          if (j.fixed > 0) {
+            showNotif(true, "✅ " + j.message + " (" + j.daftar.map(function(d){ return d.nama; }).join(", ") + ")");
+          } else {
+            showNotif(true, "✅ " + j.message);
+          }
+          const d = await callAction("cekTanpaFolder");
+          if (d?.ok) setDataCheck(d);
+          const s = await callAction("statusSistem");
+          if (s?.ok) setStatus(s);
+        } else showNotif(false, j?.error);
+      }
+
       async function handleRetryPdf() {
         if (!dataCheck || dataCheck.tanpaPdf === 0) { showNotif(false, "Tidak ada masjid yang perlu generate PDF."); return; }
         if (!window.confirm("Generate ulang PDF untuk " + dataCheck.tanpaPdf + " masjid?\nProses ini membutuhkan 1-5 menit.")) return;
@@ -2362,6 +2377,7 @@
                 { label:"Data Selesai",           val: dataCheck?.selesai   ?? "—",   color:"#15803d" },
                 { label:"Tanpa Folder",           val: dataCheck?.tanpaFolder?? "—",  color: dataCheck?.tanpaFolder>0?"#b91c1c":"#15803d" },
                 { label:"PDF Belum Ada",          val: dataCheck?.tanpaPdf  ?? "—",   color: dataCheck?.tanpaPdf>0?"#b91c1c":"#15803d" },
+                { label:"Status Stuck",            val: dataCheck?.statusStuck?? "—",  color: dataCheck?.statusStuck>0?"#b45309":"#15803d" },
                 { label:"Akun Surveyor",          val: daftarUser.length    || "—",   color:"#0369a1" },
                 { label:"Sesi Aktif",             val: status?.tokenAktif   ?? "—",   color:"#374151" },
               ].map(s => (
@@ -2387,6 +2403,7 @@
                 { label:"🔄 Sync Desa Surveyor",   desc:"Update akses desa surveyor",     color:"#0369a1", aksi:handleSyncDesa,       id:"syncDesa"        },
                 { label:"🗂️ Perbaiki Tanpa Folder", desc: (dataCheck?.tanpaFolder||0) + " masjid perlu diproses", color:dataCheck?.tanpaFolder>0?"#92400e":"#6b7280", aksi:handleProsesTanpaFolder, id:"prosesTanpaFolder" },
                 { label:"📄 Generate Ulang PDF",   desc: (dataCheck?.tanpaPdf||0) + " masjid belum ada PDF",     color:dataCheck?.tanpaPdf>0?"#5b21b6":"#6b7280",    aksi:handleRetryPdf,          id:"retrySemuaPdf"    },
+                { label:"🔧 Fix Status Stuck",       desc: (dataCheck?.statusStuck||0) + " data status tidak sinkron", color:dataCheck?.statusStuck>0?"#b45309":"#6b7280",  aksi:handleFixStatus,         id:"fixStatusStuck"   },
               ].map(a => (
                 <button key={a.id} onClick={a.aksi} disabled={loadingBtn===a.id}
                   style={{ ...C.btn(a.color, loadingBtn===a.id), display:"flex", flexDirection:"column", alignItems:"flex-start", gap:4, padding:"12px 14px", borderRadius:12, textAlign:"left", width:"100%" }}>
@@ -2409,6 +2426,7 @@
                 { label:"⚠️ Error",      val:dataCheck?.error??0,        bg: dataCheck?.error>0?"#fee2e2":"#f9fafb", c:dataCheck?.error>0?"#b91c1c":"#6b7280" },
                 { label:"📁 Tanpa Folder",val:dataCheck?.tanpaFolder??0, bg: dataCheck?.tanpaFolder>0?"#fff7ed":"#f9fafb", c:dataCheck?.tanpaFolder>0?"#92400e":"#6b7280" },
                 { label:"📄 Tanpa PDF",  val:dataCheck?.tanpaPdf??0,     bg: dataCheck?.tanpaPdf>0?"#f5f3ff":"#f9fafb", c:dataCheck?.tanpaPdf>0?"#5b21b6":"#6b7280" },
+                { label:"🔧 Status Stuck",val:dataCheck?.statusStuck??0,  bg: dataCheck?.statusStuck>0?"#fffbeb":"#f9fafb", c:dataCheck?.statusStuck>0?"#b45309":"#6b7280" },
               ].map(s => (
                 <div key={s.label} style={{ background:s.bg, border:"1px solid #e2d9c8", borderRadius:10, padding:"12px", textAlign:"center" }}>
                   <div style={{ fontSize:11, color:"#6b7280" }}>{s.label}</div>
@@ -2426,6 +2444,10 @@
               <button onClick={handleRetryPdf} disabled={!!loadingBtn || !dataCheck?.tanpaPdf}
                 style={C.btn(dataCheck?.tanpaPdf>0?"#5b21b6":"#9ca3af", !!loadingBtn || !dataCheck?.tanpaPdf)}>
                 {loadingBtn==="retrySemuaPdf"?"⏳ Generate PDF...":"📄 Generate Ulang Semua PDF"}
+              </button>
+              <button onClick={handleFixStatus} disabled={!!loadingBtn || !dataCheck?.statusStuck}
+                style={C.btn(dataCheck?.statusStuck>0?"#b45309":"#9ca3af", !!loadingBtn || !dataCheck?.statusStuck)}>
+                {loadingBtn==="fixStatusStuck"?"⏳ Memperbaiki...":"🔧 Fix Status Stuck"}
               </button>
               <button onClick={async()=>{ const d=await callAction("cekTanpaFolder"); if(d?.ok) setDataCheck(d); showNotif(true,"✅ Data diperbarui."); }}
                 disabled={!!loadingBtn} style={C.btn("#1B4332", !!loadingBtn)}>
@@ -2463,6 +2485,24 @@
                     <span style={{ fontSize:10, background:"#f5f3ff", color:"#5b21b6", padding:"2px 7px", borderRadius:20, fontWeight:600 }}>No PDF</span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {dataCheck?.daftarStatusStuck?.length > 0 && (
+              <div style={C.card}>
+                <div style={{ ...C.sec, marginBottom:8 }}>🔧 Status stuck — folder+PDF ada tapi belum "Selesai" (maks 20)</div>
+                {dataCheck.daftarStatusStuck.map(function(m,i) {
+                  return (
+                    <div key={i} style={{ display:"grid", gridTemplateColumns:"40px 1fr auto", gap:8, padding:"7px 0", borderBottom:"1px solid #f3f4f6", alignItems:"center" }}>
+                      <span style={{ fontSize:11, color:"#9ca3af" }}>Baris {m.rowNum}</span>
+                      <div>
+                        <div style={{ fontSize:12.5, fontWeight:600, color:"#1a1a1a" }}>{m.nama}</div>
+                        <div style={{ fontSize:11, color:"#6b7280" }}>{m.desa} · Status lama: {m.statusLama}</div>
+                      </div>
+                      <span style={{ fontSize:10, background:"#fffbeb", color:"#b45309", padding:"2px 7px", borderRadius:20, fontWeight:600 }}>Stuck</span>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -2589,6 +2629,7 @@
               { emoji:"🔄", masalah:"Surveyor tidak bisa akses desa yang baru disurvei", solusi:"Dashboard → Aksi Darurat → Sync Desa Surveyor. Otomatis memperbarui akses semua surveyor.", urgensi:"rendah" },
               { emoji:"➕", masalah:"Ada surveyor baru yang perlu didaftarkan", solusi:"Kelola User → Tambah Akun → isi Nama (harus persis sama dengan di Google Form), Username, Password → Simpan.", urgensi:"rendah" },
               { emoji:"📡", masalah:"Tidak yakin apakah sistem berjalan normal", solusi:"Lihat status di pojok kanan atas: ✅ Sistem Normal artinya semua baik. ⚠️ Perlu Tindakan artinya ada yang perlu diperbaiki.", urgensi:"info" },
+              { emoji:"🔧", masalah:"Total data tidak sama dengan jumlah Selesai (status stuck)", solusi:"Data Masjid → klik Fix Status Stuck. Otomatis scan dan perbaiki semua data yang folder+PDF-nya sudah ada tapi statusnya belum Selesai.", urgensi:"sedang" },
               { emoji:"⏳", masalah:"Tombol sudah diklik tapi tidak ada respons &gt;1 menit", solusi:"GAS (server backend) sedang cold start. Tunggu 30 detik lalu klik Refresh. Jika tetap tidak ada respons, cek koneksi internet.", urgensi:"info" },
             ].map((p,i) => (
               <div key={i} style={{ ...C.card, padding:"13px 16px", borderLeft:"4px solid " + (p.urgensi==="tinggi"?"#ef4444":p.urgensi==="sedang"?"#f59e0b":p.urgensi==="rendah"?"#3b82f6":"#6b7280"), borderRadius:"0 12px 12px 0" }}>
