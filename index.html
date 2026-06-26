@@ -2187,6 +2187,286 @@
       );
     }
 
+
+    // ════════════════════════════════════════════════════════════
+    //  TAB SUPER ADMIN PANEL — Respons Cepat Tanpa Buka Script
+    // ════════════════════════════════════════════════════════════
+    function TabSuperAdminPanel({ session }) {
+      const [statusSistem, setStatusSistem] = React.useState(null);
+      const [daftarUser,   setDaftarUser]   = React.useState([]);
+      const [loadingBtn,   setLoadingBtn]   = React.useState("");
+      const [notif,        setNotif]        = React.useState(null);
+      const [showResetPw,  setShowResetPw]  = React.useState(false);
+      const [pwTarget,     setPwTarget]     = React.useState("");
+      const [pwBaru,       setPwBaru]       = React.useState("");
+
+      function showNotif(ok, msg) {
+        setNotif({ ok, msg });
+        setTimeout(() => setNotif(null), 5000);
+      }
+
+      async function callAction(subAction, extra) {
+        extra = extra || {};
+        setLoadingBtn(subAction);
+        try {
+          const res  = await fetchWithTimeout(WEBAPP_URL, {
+            method: "POST", headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify({ action: "superAdminAction", token: session.token, subAction, ...extra }),
+          });
+          const json = await res.json();
+          setLoadingBtn("");
+          return json;
+        } catch(e) {
+          setLoadingBtn("");
+          showNotif(false, e.message || "Gagal menghubungi server.");
+          return null;
+        }
+      }
+
+      async function muatStatus() {
+        const json = await callAction("statusSistem");
+        if (json?.ok) setStatusSistem(json);
+        else showNotif(false, json?.error || "Gagal memuat status.");
+      }
+
+      async function muatDaftarUser() {
+        const json = await callAction("getDaftarUser");
+        if (json?.ok) setDaftarUser(json.daftar || []);
+        else showNotif(false, json?.error || "Gagal memuat daftar user.");
+      }
+
+      React.useEffect(() => { muatStatus(); muatDaftarUser(); }, []);
+
+      async function handleResetToken() {
+        if (!window.confirm("Paksa logout SEMUA surveyor sekarang?\nMereka harus login ulang.")) return;
+        const json = await callAction("resetSemuaToken");
+        if (json?.ok) showNotif(true, "✅ " + json.message);
+        else showNotif(false, json?.error);
+      }
+
+      async function handleSyncDesa() {
+        const json = await callAction("syncDesa");
+        if (json?.ok) {
+          showNotif(true, "✅ " + json.message);
+          await muatDaftarUser();
+        } else showNotif(false, json?.error);
+      }
+
+      async function handleResetPassword() {
+        if (!pwTarget || !pwBaru) { showNotif(false, "Pilih user dan isi password baru."); return; }
+        const json = await callAction("resetPassword", { targetUsername: pwTarget, passwordBaru: pwBaru });
+        if (json?.ok) {
+          showNotif(true, "✅ " + json.message);
+          setShowResetPw(false); setPwTarget(""); setPwBaru("");
+        } else showNotif(false, json?.error);
+      }
+
+      const card = { background:"#fff", border:"1px solid #e2d9c8", borderRadius:14, padding:"18px 20px", marginBottom:14 };
+      const btn  = (color, disabled) => ({
+        padding:"10px 18px", borderRadius:10, border:"none", cursor: disabled ? "not-allowed" : "pointer",
+        fontSize:13, fontWeight:600, fontFamily:"'DM Sans',sans-serif",
+        background: disabled ? "#e5e7eb" : color, color: disabled ? "#9ca3af" : "#fff",
+        opacity: disabled ? .7 : 1, transition:"all .2s",
+      });
+      const inp = { width:"100%", padding:"9px 12px", borderRadius:8, border:"1.5px solid #e2d9c8",
+                    fontSize:13, fontFamily:"'DM Sans',sans-serif", outline:"none", background:"#fff",
+                    color:"#1a1a1a", boxSizing:"border-box", marginTop:6 };
+
+      const AKSI = [
+        {
+          id:    "resetSemuaToken",
+          icon:  "🚪",
+          judul: "Paksa Logout Semua Surveyor",
+          ket:   "Gunakan jika banyak surveyor tiba-tiba tidak bisa mengakses sistem, atau ada dugaan akun dipakai orang lain. Semua surveyor akan keluar otomatis dan harus login ulang.",
+          warna: "#b91c1c",
+          label: "Paksa Logout Sekarang",
+          aksi:  handleResetToken,
+          konfirmasi: true,
+        },
+        {
+          id:    "syncDesa",
+          icon:  "🔄",
+          judul: "Sync Desa Surveyor",
+          ket:   "Gunakan jika ada surveyor yang baru menambahkan data masjid di desa baru, tapi akses desanya belum diperbarui. Proses ini memperbarui daftar desa setiap surveyor secara otomatis.",
+          warna: "#0369a1",
+          label: "Sync Desa Sekarang",
+          aksi:  handleSyncDesa,
+        },
+        {
+          id:    "getDaftarUser",
+          icon:  "👥",
+          judul: "Refresh Daftar User",
+          ket:   "Muat ulang daftar semua akun surveyor yang terdaftar beserta status desa dan keamanan passwordnya.",
+          warna: "#1B4332",
+          label: "Refresh Daftar",
+          aksi:  async () => { await muatDaftarUser(); showNotif(true, "✅ Daftar user diperbarui."); },
+        },
+        {
+          id:    "resetPassword",
+          icon:  "🔑",
+          judul: "Reset Password Surveyor",
+          ket:   "Gunakan jika surveyor lupa password dan tidak bisa login. Pilih nama surveyor lalu masukkan password baru minimal 6 karakter. Beritahu password baru ke surveyor yang bersangkutan.",
+          warna: "#92400e",
+          label: "Buka Form Reset Password",
+          aksi:  () => setShowResetPw(true),
+        },
+        {
+          id:    "statusSistem",
+          icon:  "📡",
+          judul: "Cek Status Sistem",
+          ket:   "Tampilkan informasi terkini: jumlah akun, token aktif, total data masjid, dan waktu server. Gunakan untuk memastikan sistem berjalan normal.",
+          warna: "#4f46e5",
+          label: "Cek Status",
+          aksi:  async () => { await muatStatus(); showNotif(true, "✅ Status sistem diperbarui."); },
+        },
+      ];
+
+      return (
+        <div style={{ maxWidth:700, margin:"0 auto", padding:"8px 0 40px" }}>
+
+          {/* Header */}
+          <div style={{ marginBottom:20 }}>
+            <div style={{ fontFamily:"'Playfair Display',serif", fontSize:22, fontWeight:700, color:"#1B4332" }}>⚙️ Panel Super Admin</div>
+            <div style={{ fontSize:13, color:"#6b7280", marginTop:4 }}>Respons cepat gangguan sistem — tanpa perlu membuka Google Apps Script</div>
+          </div>
+
+          {/* Notifikasi */}
+          {notif && (
+            <div style={{ padding:"12px 16px", borderRadius:10, marginBottom:16, fontSize:13, fontWeight:500,
+                          background: notif.ok ? "#dcfce7" : "#fee2e2",
+                          color:      notif.ok ? "#15803d" : "#b91c1c",
+                          border:     "1px solid " + (notif.ok ? "#86efac" : "#fca5a5") }}>
+              {notif.msg}
+            </div>
+          )}
+
+          {/* Status Sistem */}
+          {statusSistem && (
+            <div style={{ ...card, background:"#f0fdf4", border:"1px solid #86efac", marginBottom:20 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:"#15803d", marginBottom:10, textTransform:"uppercase", letterSpacing:".05em" }}>📡 Status Sistem Saat Ini</div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:10 }}>
+                {[
+                  { label:"Total Akun",     val: statusSistem.totalAkun   },
+                  { label:"Sesi Aktif",     val: statusSistem.tokenAktif  },
+                  { label:"Data Masjid",    val: statusSistem.totalData   },
+                  { label:"Waktu Server",   val: statusSistem.waktuServer },
+                ].map(s => (
+                  <div key={s.label} style={{ background:"#fff", borderRadius:8, padding:"10px 12px", border:"1px solid #bbf7d0" }}>
+                    <div style={{ fontSize:11, color:"#6b7280" }}>{s.label}</div>
+                    <div style={{ fontSize:15, fontWeight:700, color:"#1B4332", marginTop:2 }}>{s.val}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tombol-tombol aksi */}
+          <div style={{ fontSize:12, fontWeight:700, color:"#6b7280", marginBottom:10, textTransform:"uppercase", letterSpacing:".05em" }}>🛠️ Aksi Darurat</div>
+          {AKSI.map(a => (
+            <div key={a.id} style={card}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12, flexWrap:"wrap" }}>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:15, fontWeight:700, color:"#1a1a1a", marginBottom:6 }}>{a.icon} {a.judul}</div>
+                  <div style={{ fontSize:12.5, color:"#6b7280", lineHeight:1.6 }}>{a.ket}</div>
+                </div>
+                <button
+                  onClick={a.aksi}
+                  disabled={loadingBtn === a.id}
+                  style={{ ...btn(a.warna, loadingBtn === a.id), whiteSpace:"nowrap", flexShrink:0 }}>
+                  {loadingBtn === a.id ? "⏳ Proses..." : a.label}
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {/* Form Reset Password */}
+          {showResetPw && (
+            <div style={{ ...card, border:"2px solid #92400e", background:"#fffbeb" }}>
+              <div style={{ fontSize:15, fontWeight:700, color:"#92400e", marginBottom:14 }}>🔑 Reset Password Surveyor</div>
+              <label style={{ fontSize:12, color:"#374151", fontWeight:600 }}>Pilih Surveyor</label>
+              <select value={pwTarget} onChange={e => setPwTarget(e.target.value)} style={{ ...inp, marginBottom:12 }}>
+                <option value="">-- Pilih username surveyor --</option>
+                {daftarUser.filter(u => u.level === "editor").map(u => (
+                  <option key={u.username} value={u.username}>{u.username} — {u.nama}</option>
+                ))}
+              </select>
+              <label style={{ fontSize:12, color:"#374151", fontWeight:600 }}>Password Baru (min. 6 karakter)</label>
+              <input type="text" value={pwBaru} onChange={e => setPwBaru(e.target.value)}
+                placeholder="Contoh: SurveyorBaru2026"
+                style={{ ...inp, marginBottom:14 }} />
+              <div style={{ display:"flex", gap:10 }}>
+                <button onClick={handleResetPassword} disabled={loadingBtn==="resetPassword"}
+                  style={btn("#92400e", loadingBtn==="resetPassword")}>
+                  {loadingBtn==="resetPassword" ? "⏳ Menyimpan..." : "✅ Simpan Password Baru"}
+                </button>
+                <button onClick={() => { setShowResetPw(false); setPwTarget(""); setPwBaru(""); }}
+                  style={{ ...btn("#6b7280", false) }}>
+                  Batal
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Daftar User */}
+          <div style={{ ...card, marginTop:6 }}>
+            <div style={{ fontSize:12, fontWeight:700, color:"#6b7280", marginBottom:12, textTransform:"uppercase", letterSpacing:".05em" }}>👥 Daftar Akun Terdaftar</div>
+            {daftarUser.length === 0 ? (
+              <div style={{ fontSize:13, color:"#9ca3af", textAlign:"center", padding:20 }}>Memuat...</div>
+            ) : (
+              <div style={{ overflowX:"auto" }}>
+                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                  <thead>
+                    <tr style={{ borderBottom:"2px solid #e2d9c8" }}>
+                      {["Username","Nama","Level","Desa","Password"].map(h => (
+                        <th key={h} style={{ padding:"6px 10px", textAlign:"left", color:"#6b7280", fontWeight:700, whiteSpace:"nowrap" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {daftarUser.map((u, i) => (
+                      <tr key={u.username} style={{ borderBottom:"1px solid #f3f4f6", background: i%2===0?"#fff":"#fafaf7" }}>
+                        <td style={{ padding:"8px 10px", fontWeight:600, color:"#1B4332" }}>{u.username}</td>
+                        <td style={{ padding:"8px 10px", color:"#374151" }}>{u.nama}</td>
+                        <td style={{ padding:"8px 10px" }}>
+                          <span style={{ padding:"2px 8px", borderRadius:20, fontSize:11, fontWeight:600,
+                            background: u.level==="super" ? "#fef9c3" : u.level==="editor" ? "#dbeafe" : "#f3f4f6",
+                            color:      u.level==="super" ? "#854d0e" : u.level==="editor" ? "#1d4ed8" : "#6b7280" }}>
+                            {u.level}
+                          </span>
+                        </td>
+                        <td style={{ padding:"8px 10px", color:"#6b7280", fontSize:11 }}>{u.desa || "Semua"}</td>
+                        <td style={{ padding:"8px 10px" }}>
+                          <span style={{ fontSize:11 }}>{u.pwStatus}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Panduan singkat */}
+          <div style={{ ...card, background:"#f8fafc", border:"1px solid #cbd5e1", marginTop:6 }}>
+            <div style={{ fontSize:12, fontWeight:700, color:"#475569", marginBottom:10, textTransform:"uppercase", letterSpacing:".05em" }}>📖 Panduan Cepat — Saat Terjadi Masalah</div>
+            {[
+              { masalah:"Surveyor tidak bisa login",           solusi:"Klik Reset Password → pilih nama surveyor → beri password baru" },
+              { masalah:"Semua surveyor tiba-tiba keluar",     solusi:"Normal jika sudah 8 jam. Jika tidak wajar, cek Status Sistem dulu" },
+              { masalah:"Surveyor tidak bisa akses desa baru", solusi:"Klik Sync Desa Surveyor → otomatis diperbarui" },
+              { masalah:"Ada dugaan akun disalahgunakan",      solusi:"Klik Paksa Logout Semua → semua sesi dihapus → minta login ulang" },
+              { masalah:"Sistem tidak merespons",              solusi:"Tunggu 30 detik (GAS cold start) → coba lagi. Jika berlanjut, cek status.google.com" },
+            ].map((p, i) => (
+              <div key={i} style={{ display:"grid", gridTemplateColumns:"1fr 1.5fr", gap:8, padding:"8px 0", borderBottom: i<4?"1px solid #e2e8f0":"none", alignItems:"start" }}>
+                <div style={{ fontSize:12, color:"#ef4444", fontWeight:600 }}>⚠️ {p.masalah}</div>
+                <div style={{ fontSize:12, color:"#374151" }}>→ {p.solusi}</div>
+              </div>
+            ))}
+          </div>
+
+        </div>
+      );
+    }
+
     // ════════════════════════════════════════════════════════════
     //  APP UTAMA — v4.9
     // ════════════════════════════════════════════════════════════
@@ -2220,6 +2500,7 @@
         { id:"statistik", icon:"📊",  label:"Statistik" },
         { id:"kiblat",    icon:"🧭",  label:"Kiblat"    },
         ...(adminSession ? [{ id:"kendali", icon:"📋", label:"Kendali Data" }] : []),
+        ...(adminSession?.level === "super" ? [{ id:"panel", icon:"⚙️", label:"Panel Admin" }] : []),
       ];
 
       return (
@@ -2287,6 +2568,7 @@
             {tab === "statistik" && <TabStatistik data={data}/>}
             {tab === "kiblat"    && <TabKiblat/>}
             {tab === "kendali"   && adminSession && <TabKendaliData session={adminSession} allData={data} onOpenDetail={setSelected}/>}
+            {tab === "panel" && adminSession?.level === "super" && <TabSuperAdminPanel session={adminSession} />}
 
             <div style={{ marginTop:40, paddingTop:16, borderTop:"1px solid #e8e0d0", textAlign:"center", fontSize:11, color:"#9ca3af", lineHeight:1.8 }}>
               Direktori Masjid & Musholla · Kecamatan Pilangkenceng, Kabupaten Madiun<br/>
