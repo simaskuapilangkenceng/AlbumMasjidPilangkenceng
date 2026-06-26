@@ -54,6 +54,65 @@
     const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyL4d4zfgG5cgL5A1bjZUV2AbD4HjjUTgNlu3DhZcyHLERdHXC_PxVVuDECtnD04BTExA/exec";
 
     // ════════════════════════════════════════════════════════════
+    //  FASE 2 — PATCH: fetchWithTimeout + Offline Guard
+    //  B2: semua fetch ke WEBAPP_URL dibungkus timeout 30 detik
+    //  B3: cek offline sebelum kirim, banner di UI
+    // ════════════════════════════════════════════════════════════
+    const FETCH_TIMEOUT_MS = 30000; // 30 detik
+
+    async function fetchWithTimeout(url, options = {}) {
+      // Guard offline terlebih dahulu
+      if (!navigator.onLine) {
+        throw new Error("OFFLINE: Tidak ada koneksi internet. Pastikan sinyal aktif lalu coba lagi.");
+      }
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+      try {
+        const res = await fetch(url, { ...options, signal: ctrl.signal });
+        clearTimeout(timer);
+        return res;
+      } catch (err) {
+        clearTimeout(timer);
+        if (err.name === "AbortError") {
+          throw new Error("TIMEOUT: Server tidak merespons dalam 30 detik. Coba lagi beberapa saat.");
+        }
+        throw err;
+      }
+    }
+
+    // Hook: pantau status koneksi real-time
+    function useOnlineStatus() {
+      const [isOnline, setIsOnline] = useState(navigator.onLine);
+      useEffect(() => {
+        const on  = () => setIsOnline(true);
+        const off = () => setIsOnline(false);
+        window.addEventListener("online",  on);
+        window.addEventListener("offline", off);
+        return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+      }, []);
+      return isOnline;
+    }
+
+    // Komponen banner offline — muncul otomatis di atas halaman
+    function OfflineBanner() {
+      const isOnline = useOnlineStatus();
+      if (isOnline) return null;
+      return (
+        <div style={{
+          position:"fixed", top:0, left:0, right:0, zIndex:9999,
+          background:"#7f1d1d", color:"#fef2f2",
+          padding:"10px 20px", textAlign:"center",
+          fontSize:13, fontWeight:500, fontFamily:"'DM Sans',sans-serif",
+          display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+          boxShadow:"0 2px 8px rgba(0,0,0,.3)"
+        }}>
+          <span style={{fontSize:16}}>📵</span>
+          <span>Tidak ada koneksi internet — Data belum tersimpan. Periksa sinyal lalu refresh halaman.</span>
+        </div>
+      );
+    }
+
+    // ════════════════════════════════════════════════════════════
     //  MAPPING INDEX KOLOM — 116 kolom (index 0–115)
     // ════════════════════════════════════════════════════════════
     const IDX = {
@@ -671,7 +730,7 @@
           }).catch(err => { showToast(false, err.message); return null; });
           if (!base64) continue;
           try {
-            const resp = await fetch(WEBAPP_URL, {
+            const resp = await fetchWithTimeout(WEBAPP_URL, {
               method:"POST", headers:{"Content-Type":"text/plain"},
               body: JSON.stringify({ action:"uploadFoto", token:adminSession.token, idSimas:masjid.idSimas, kategori:activeKat, fileName:file.name, mimeType:file.type, base64, mode:"append" }),
             });
@@ -681,7 +740,7 @@
               showToast(true, `${file.name} berhasil diupload.`);
               if (onFotoUpdated) onFotoUpdated(activeKat, json.updatedUrl);
             } else { showToast(false, json.error || "Upload gagal."); }
-          } catch(err) { showToast(false, "Gagal menghubungi server."); }
+          } catch(err) { showToast(false, err.message || "Gagal menghubungi server."); }
         }
         setUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -691,7 +750,7 @@
         if (!window.confirm("Hapus foto ini dari Drive & Spreadsheet?")) return;
         setDeleting(url);
         try {
-          const resp = await fetch(WEBAPP_URL, {
+          const resp = await fetchWithTimeout(WEBAPP_URL, {
             method:"POST", headers:{"Content-Type":"text/plain"},
             body: JSON.stringify({ action:"deleteFoto", token:adminSession.token, idSimas:masjid.idSimas, kategori:activeKat, fileUrl:url }),
           });
@@ -701,7 +760,7 @@
             showToast(true, "Foto berhasil dihapus.");
             if (onFotoUpdated) onFotoUpdated(activeKat, json.updatedUrl);
           } else { showToast(false, json.error || "Hapus gagal."); }
-        } catch(err) { showToast(false, "Gagal menghubungi server."); }
+        } catch(err) { showToast(false, err.message || "Gagal menghubungi server."); }
         finally { setDeleting(null); }
       };
 
@@ -957,7 +1016,7 @@
           const payload = { action:"updateBatch", token:adminSession.token, changes };
           if (masjid.idSimas?.trim()) payload.idSimas = masjid.idSimas;
           else { payload.namaMasjidFallback = masjid.namaMasjid; payload.desaFallback = masjid.desa || ""; }
-          const res = await fetch(WEBAPP_URL, { method:"POST", headers:{"Content-Type":"text/plain"}, body:JSON.stringify(payload) });
+          const res = await fetchWithTimeout(WEBAPP_URL, { method:"POST", headers:{"Content-Type":"text/plain"}, body:JSON.stringify(payload) });
           const json = await res.json();
           if (json.ok) {
             const updatedFields = {};
@@ -1159,7 +1218,7 @@
             kondisiBgn:   form.kondisiBgn,
             statusTanah:  form.statusTanah,
           };
-          const res  = await fetch(WEBAPP_URL, { method:"POST", headers:{"Content-Type":"text/plain"}, body:JSON.stringify(payload) });
+          const res  = await fetchWithTimeout(WEBAPP_URL, { method:"POST", headers:{"Content-Type":"text/plain"}, body:JSON.stringify(payload) });
           const json = await res.json();
           if (json.ok) {
             setStep(3);
@@ -1752,8 +1811,8 @@
     function AdminLoginModal({ onClose, onLoginSuccess }) {
       const [username,setUsername]=useState(""), [password,setPassword]=useState(""), [showPass,setShowPass]=useState(false), [loading,setLoading]=useState(false), [error,setError]=useState(""), [tab,setTab]=useState("login");
       const [regUsername,setRegUsername]=useState(""), [regPassword,setRegPassword]=useState(""), [regNama,setRegNama]=useState(""), [regLoading,setRegLoading]=useState(false), [regMsg,setRegMsg]=useState(null);
-      const handleLogin=async()=>{if(!username.trim()||!password){setError("Username dan password wajib diisi.");return;}setLoading(true);setError("");try{const res=await fetch(WEBAPP_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({action:"login",username:username.trim(),password})});const json=await res.json();if(json.ok){const session={token:json.token,nama:json.nama,level:json.level,desa:json.desa||null,loginAt:Date.now()};sessionStorage.setItem("albumMasjidAdmin",JSON.stringify(session));onLoginSuccess(session);onClose();}else{setError(json.error||"Login gagal.");}}catch(e){setError("Gagal menghubungi server.");}finally{setLoading(false);}};
-      const handleRegister=async()=>{if(!regUsername.trim()||!regPassword||!regNama.trim()){setRegMsg({ok:false,text:"Semua field wajib diisi."});return;}setRegLoading(true);setRegMsg(null);try{const res=await fetch(WEBAPP_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({action:"register",username:regUsername.trim(),password:regPassword,namaSurveyor:regNama.trim()})});const json=await res.json();if(json.ok){setRegMsg({ok:true,text:json.message+(json.daftarDesa?.length?" Akses desa: "+json.daftarDesa.join(", ")+".":"")});setRegUsername("");setRegPassword("");setRegNama("");}else{setRegMsg({ok:false,text:json.error||"Pendaftaran gagal."});}}catch(e){setRegMsg({ok:false,text:"Gagal menghubungi server."});}finally{setRegLoading(false);}};
+      const handleLogin=async()=>{if(!username.trim()||!password){setError("Username dan password wajib diisi.");return;}setLoading(true);setError("");try{const res=await fetchWithTimeout(WEBAPP_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({action:"login",username:username.trim(),password})});const json=await res.json();if(json.ok){const session={token:json.token,nama:json.nama,level:json.level,desa:json.desa||null,loginAt:Date.now()};sessionStorage.setItem("albumMasjidAdmin",JSON.stringify(session));onLoginSuccess(session);onClose();}else{setError(json.error||"Login gagal.");}}catch(e){setError(e.message||"Gagal menghubungi server.");}finally{setLoading(false);}};
+      const handleRegister=async()=>{if(!regUsername.trim()||!regPassword||!regNama.trim()){setRegMsg({ok:false,text:"Semua field wajib diisi."});return;}setRegLoading(true);setRegMsg(null);try{const res=await fetchWithTimeout(WEBAPP_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({action:"register",username:regUsername.trim(),password:regPassword,namaSurveyor:regNama.trim()})});const json=await res.json();if(json.ok){setRegMsg({ok:true,text:json.message+(json.daftarDesa?.length?" Akses desa: "+json.daftarDesa.join(", ")+".":" Menunggu sync desa oleh Admin.")});setRegUsername("");setRegPassword("");setRegNama("");}else{setRegMsg({ok:false,text:json.error||"Pendaftaran gagal."});}}catch(e){setRegMsg({ok:false,text:e.message||"Gagal menghubungi server."});}finally{setRegLoading(false);}};
       const inpStyle={width:"100%",padding:"11px 14px",borderRadius:10,border:"1.5px solid #e2d9c8",fontSize:14,fontFamily:"'DM Sans',sans-serif",outline:"none",background:"white",color:"#1a1a1a",boxSizing:"border-box",transition:"border-color .2s"};
       const btn=(primary=true)=>({width:"100%",padding:"12px",borderRadius:10,border:"none",cursor:"pointer",fontSize:14,fontWeight:600,fontFamily:"'DM Sans',sans-serif",transition:"opacity .2s",background:primary?"#1B4332":"#f0e8d8",color:primary?"white":"#1B4332"});
       return(
@@ -1834,18 +1893,20 @@
       const muat = useCallback(() => {
         setKdLoad(true); setKdErr("");
         const action = isAdmin ? "getKendaliDataAdmin" : "getKendaliData";
-        fetch(WEBAPP_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({ action, token: session.token })
-        })
-          .then(r => r.json())
-          .then(resp => {
-            if (!resp || !resp.ok) { setKdErr(resp?.error || "Data tidak ditemukan."); setKdLoad(false); return; }
-            setKdData(resp.masjid || []);
-            setKdLoad(false);
-          })
-          .catch(err => { setKdErr("Gagal menghubungi server: " + err.message); setKdLoad(false); });
+      const muat = useCallback(async () => {
+        setKdLoad(true); setKdErr("");
+        const action = isAdmin ? "getKendaliDataAdmin" : "getKendaliData";
+        try {
+          const r = await fetchWithTimeout(WEBAPP_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify({ action, token: session.token })
+          });
+          const resp = await r.json();
+          if (!resp || !resp.ok) { setKdErr(resp?.error || "Data tidak ditemukan."); setKdLoad(false); return; }
+          setKdData(resp.masjid || []);
+          setKdLoad(false);
+        } catch(err) { setKdErr(err.message || "Gagal menghubungi server."); setKdLoad(false); }
       }, [session.token, isAdmin]);
 
       useEffect(() => { muat(); }, [muat]);
@@ -2108,7 +2169,7 @@
       const LEVEL_COLOR={super:{bg:"#fef9c3",color:"#a16207"},editor:{bg:"#dcfce7",color:"#15803d"},viewer:{bg:"#f3f4f6",color:"#6b7280"}};
       const lc=LEVEL_COLOR[session.level]||LEVEL_COLOR.viewer;
       const LEVEL_LABEL={super:"👑 Super",editor:"✏️ Editor",viewer:"👁 Viewer"};
-      const handleLogout=async()=>{setLoading(true);try{await fetch(WEBAPP_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({action:"logout",token:session.token})});}catch(e){}sessionStorage.removeItem("albumMasjidAdmin");onLogout();setLoading(false);};
+      const handleLogout=async()=>{setLoading(true);try{await fetchWithTimeout(WEBAPP_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({action:"logout",token:session.token})});}catch(e){}sessionStorage.removeItem("albumMasjidAdmin");onLogout();setLoading(false);};
       return(
         <div style={{position:"relative"}}>
           <button onClick={()=>setExpand(!expand)} style={{display:"flex",alignItems:"center",gap:7,padding:"6px 12px",borderRadius:24,border:"1px solid rgba(212,168,83,.4)",background:"rgba(212,168,83,.15)",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>
@@ -2168,6 +2229,7 @@
 
       return (
         <div style={{ minHeight:"100vh", background:"var(--krem)" }}>
+          <OfflineBanner />
           <header style={{ background:"#1B4332", position:"sticky", top:0, zIndex:500, boxShadow:"0 2px 20px rgba(27,67,50,.4)" }}>
             <div style={{ height:3, background:"repeating-linear-gradient(90deg,#D4A853 0,#D4A853 8px,transparent 8px,transparent 16px,#D4A853 16px,#D4A853 22px,transparent 22px,transparent 30px)" }}/>
             <div style={{ maxWidth:1120, margin:"0 auto", padding:"10px 20px", display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
