@@ -14,10 +14,9 @@
   <style>
     *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root { --hijau: #1B4332; --emas: #D4A853; --krem: #FAFAF7; --border: #e2d9c8; }
-    /* FASE 3 — P1/P2: Proteksi konten dasar */
+    /* FASE 3 — Proteksi konten */
     body { background: var(--krem); font-family: 'DM Sans', sans-serif;
            -webkit-user-select: none; -moz-user-select: none; user-select: none; }
-    /* Izinkan select di field input agar surveyor bisa copy-paste data sendiri */
     input, textarea, select { -webkit-user-select: text; -moz-user-select: text; user-select: text; }
     input, select, button { font-family: inherit; }
     @media (max-width: 768px) {
@@ -57,22 +56,20 @@
 
     const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyL4d4zfgG5cgL5A1bjZUV2AbD4HjjUTgNlu3DhZcyHLERdHXC_PxVVuDECtnD04BTExA/exec";
 
-    // ════════════════════════════════════════════════════════════
-    //  FASE 2 — PATCH: fetchWithTimeout + Offline Guard
-    //  B2: semua fetch ke WEBAPP_URL dibungkus timeout 30 detik
-    //  B3: cek offline sebelum kirim, banner di UI
-    // ════════════════════════════════════════════════════════════
-    const FETCH_TIMEOUT_MS = 30000; // 30 detik
+    // ══════════════════════════════════════════════════════════════
+    //  PATCH FASE 2+3: fetchWithTimeout + Offline Guard
+    // ══════════════════════════════════════════════════════════════
+    const FETCH_TIMEOUT_MS = 30000;
 
-    async function fetchWithTimeout(url, options = {}) {
-      // Guard offline terlebih dahulu
+    async function fetchWithTimeout(url, options) {
+      options = options || {};
       if (!navigator.onLine) {
         throw new Error("OFFLINE: Tidak ada koneksi internet. Pastikan sinyal aktif lalu coba lagi.");
       }
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+      const timer = setTimeout(function() { ctrl.abort(); }, FETCH_TIMEOUT_MS);
       try {
-        const res = await fetch(url, { ...options, signal: ctrl.signal });
+        const res = await fetch(url, Object.assign({}, options, { signal: ctrl.signal }));
         clearTimeout(timer);
         return res;
       } catch (err) {
@@ -84,20 +81,18 @@
       }
     }
 
-    // Hook: pantau status koneksi real-time
     function useOnlineStatus() {
-      const [isOnline, setIsOnline] = useState(navigator.onLine);
-      useEffect(() => {
-        const on  = () => setIsOnline(true);
-        const off = () => setIsOnline(false);
+      const [isOnline, setIsOnline] = React.useState(navigator.onLine);
+      React.useEffect(function() {
+        const on  = function() { setIsOnline(true); };
+        const off = function() { setIsOnline(false); };
         window.addEventListener("online",  on);
         window.addEventListener("offline", off);
-        return () => { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
+        return function() { window.removeEventListener("online", on); window.removeEventListener("offline", off); };
       }, []);
       return isOnline;
     }
 
-    // Komponen banner offline — muncul otomatis di atas halaman
     function OfflineBanner() {
       const isOnline = useOnlineStatus();
       if (isOnline) return null;
@@ -106,12 +101,11 @@
           position:"fixed", top:0, left:0, right:0, zIndex:9999,
           background:"#7f1d1d", color:"#fef2f2",
           padding:"10px 20px", textAlign:"center",
-          fontSize:13, fontWeight:500, fontFamily:"'DM Sans',sans-serif",
+          fontSize:13, fontWeight:500,
           display:"flex", alignItems:"center", justifyContent:"center", gap:8,
           boxShadow:"0 2px 8px rgba(0,0,0,.3)"
         }}>
-          <span style={{fontSize:16}}>📵</span>
-          <span>Tidak ada koneksi internet — Data belum tersimpan. Periksa sinyal lalu refresh halaman.</span>
+          <span>📵 Tidak ada koneksi internet — Data belum tersimpan. Periksa sinyal lalu refresh halaman.</span>
         </div>
       );
     }
@@ -1815,8 +1809,8 @@
     function AdminLoginModal({ onClose, onLoginSuccess }) {
       const [username,setUsername]=useState(""), [password,setPassword]=useState(""), [showPass,setShowPass]=useState(false), [loading,setLoading]=useState(false), [error,setError]=useState(""), [tab,setTab]=useState("login");
       const [regUsername,setRegUsername]=useState(""), [regPassword,setRegPassword]=useState(""), [regNama,setRegNama]=useState(""), [regLoading,setRegLoading]=useState(false), [regMsg,setRegMsg]=useState(null);
-      const handleLogin=async()=>{if(!username.trim()||!password){setError("Username dan password wajib diisi.");return;}setLoading(true);setError("");try{const res=await fetchWithTimeout(WEBAPP_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({action:"login",username:username.trim(),password})});const json=await res.json();if(json.ok){const session={token:json.token,nama:json.nama,level:json.level,desa:json.desa||null,loginAt:Date.now()};sessionStorage.setItem("albumMasjidAdmin",JSON.stringify(session));onLoginSuccess(session);onClose();}else{setError(json.error||"Login gagal.");}}catch(e){setError(e.message||"Gagal menghubungi server.");}finally{setLoading(false);}};
-      const handleRegister=async()=>{if(!regUsername.trim()||!regPassword||!regNama.trim()){setRegMsg({ok:false,text:"Semua field wajib diisi."});return;}setRegLoading(true);setRegMsg(null);try{const res=await fetchWithTimeout(WEBAPP_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({action:"register",username:regUsername.trim(),password:regPassword,namaSurveyor:regNama.trim()})});const json=await res.json();if(json.ok){setRegMsg({ok:true,text:json.message+(json.daftarDesa?.length?" Akses desa: "+json.daftarDesa.join(", ")+".":" Menunggu sync desa oleh Admin.")});setRegUsername("");setRegPassword("");setRegNama("");}else{setRegMsg({ok:false,text:json.error||"Pendaftaran gagal."});}}catch(e){setRegMsg({ok:false,text:e.message||"Gagal menghubungi server."});}finally{setRegLoading(false);}};
+      const handleLogin=async()=>{if(!username.trim()||!password){setError("Username dan password wajib diisi.");return;}setLoading(true);setError("");try{const res=await fetchWithTimeout(WEBAPP_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({action:"login",username:username.trim(),password})});const json=await res.json();if(json.ok){const session={token:json.token,nama:json.nama,level:json.level,desa:json.desa||null,loginAt:Date.now()};sessionStorage.setItem("albumMasjidAdmin",JSON.stringify(session));onLoginSuccess(session);onClose();}else{setError(json.error||"Login gagal.");}}catch(e){setError(err.message || "Gagal menghubungi server.");}finally{setLoading(false);}};
+      const handleRegister=async()=>{if(!regUsername.trim()||!regPassword||!regNama.trim()){setRegMsg({ok:false,text:"Semua field wajib diisi."});return;}setRegLoading(true);setRegMsg(null);try{const res=await fetchWithTimeout(WEBAPP_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({action:"register",username:regUsername.trim(),password:regPassword,namaSurveyor:regNama.trim()})});const json=await res.json();if(json.ok){setRegMsg({ok:true,text:json.message+(json.daftarDesa?.length?" Akses desa: "+json.daftarDesa.join(", ")+".":"")});setRegUsername("");setRegPassword("");setRegNama("");}else{setRegMsg({ok:false,text:json.error||"Pendaftaran gagal."});}}catch(e){setRegMsg({ok:false,text:"Gagal menghubungi server."});}finally{setRegLoading(false);}};
       const inpStyle={width:"100%",padding:"11px 14px",borderRadius:10,border:"1.5px solid #e2d9c8",fontSize:14,fontFamily:"'DM Sans',sans-serif",outline:"none",background:"white",color:"#1a1a1a",boxSizing:"border-box",transition:"border-color .2s"};
       const btn=(primary=true)=>({width:"100%",padding:"12px",borderRadius:10,border:"none",cursor:"pointer",fontSize:14,fontWeight:600,fontFamily:"'DM Sans',sans-serif",transition:"opacity .2s",background:primary?"#1B4332":"#f0e8d8",color:primary?"white":"#1B4332"});
       return(
@@ -1894,9 +1888,6 @@
       const [modal,     setModal]     = useState(null);
       const [modalGrup, setModalGrup] = useState("identitas");
 
-      const muat = useCallback(() => {
-        setKdLoad(true); setKdErr("");
-        const action = isAdmin ? "getKendaliDataAdmin" : "getKendaliData";
       const muat = useCallback(async () => {
         setKdLoad(true); setKdErr("");
         const action = isAdmin ? "getKendaliDataAdmin" : "getKendaliData";
@@ -1910,7 +1901,7 @@
           if (!resp || !resp.ok) { setKdErr(resp?.error || "Data tidak ditemukan."); setKdLoad(false); return; }
           setKdData(resp.masjid || []);
           setKdLoad(false);
-        } catch(err) { setKdErr(err.message || "Gagal menghubungi server."); setKdLoad(false); }
+        } catch(err) { setKdErr(err.message || err.message || "Gagal menghubungi server."); setKdLoad(false); }
       }, [session.token, isAdmin]);
 
       useEffect(() => { muat(); }, [muat]);
@@ -2336,25 +2327,17 @@
     ReactDOM.createRoot(document.getElementById("root")).render(<AlbumMasjid/>);
   </script>
 
-  <!-- FASE 3 — P1: Proteksi source code dari casual user -->
+  <!-- FASE 3: Proteksi source code -->
   <script>
     (function() {
-      // Disable klik kanan
       document.addEventListener("contextmenu", function(e) { e.preventDefault(); });
-
-      // Disable Ctrl+U (view source), Ctrl+S (save), Ctrl+Shift+I/J (DevTools)
       document.addEventListener("keydown", function(e) {
-        var k = e.key ? e.key.toLowerCase() : "";
+        var k = (e.key || "").toLowerCase();
         var ctrl = e.ctrlKey || e.metaKey;
-        // Ctrl+U, Ctrl+S
         if (ctrl && (k === "u" || k === "s")) { e.preventDefault(); return false; }
-        // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C (DevTools)
         if (ctrl && e.shiftKey && (k === "i" || k === "j" || k === "c")) { e.preventDefault(); return false; }
-        // F12
         if (e.key === "F12") { e.preventDefault(); return false; }
       });
-
-      // Disable drag konten
       document.addEventListener("dragstart", function(e) { e.preventDefault(); });
     })();
   </script>
