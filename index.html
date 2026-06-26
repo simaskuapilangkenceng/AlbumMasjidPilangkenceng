@@ -14,7 +14,11 @@
   <style>
     *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root { --hijau: #1B4332; --emas: #D4A853; --krem: #FAFAF7; --border: #e2d9c8; }
-    body { background: var(--krem); font-family: 'DM Sans', sans-serif; }
+    /* FASE 3 — P1/P2: Proteksi konten dasar */
+    body { background: var(--krem); font-family: 'DM Sans', sans-serif;
+           -webkit-user-select: none; -moz-user-select: none; user-select: none; }
+    /* Izinkan select di field input agar surveyor bisa copy-paste data sendiri */
+    input, textarea, select { -webkit-user-select: text; -moz-user-select: text; user-select: text; }
     input, select, button { font-family: inherit; }
     @media (max-width: 768px) {
       input, select, textarea { font-size: 16px !important; }
@@ -2330,6 +2334,29 @@
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(<AlbumMasjid/>);
+  </script>
+
+  <!-- FASE 3 — P1: Proteksi source code dari casual user -->
+  <script>
+    (function() {
+      // Disable klik kanan
+      document.addEventListener("contextmenu", function(e) { e.preventDefault(); });
+
+      // Disable Ctrl+U (view source), Ctrl+S (save), Ctrl+Shift+I/J (DevTools)
+      document.addEventListener("keydown", function(e) {
+        var k = e.key ? e.key.toLowerCase() : "";
+        var ctrl = e.ctrlKey || e.metaKey;
+        // Ctrl+U, Ctrl+S
+        if (ctrl && (k === "u" || k === "s")) { e.preventDefault(); return false; }
+        // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C (DevTools)
+        if (ctrl && e.shiftKey && (k === "i" || k === "j" || k === "c")) { e.preventDefault(); return false; }
+        // F12
+        if (e.key === "F12") { e.preventDefault(); return false; }
+      });
+
+      // Disable drag konten
+      document.addEventListener("dragstart", function(e) { e.preventDefault(); });
+    })();
   </script>
 </body>
 </html>
