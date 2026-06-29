@@ -730,7 +730,7 @@
           try {
             const resp = await fetchWithTimeout(WEBAPP_URL, {
               method:"POST", headers:{"Content-Type":"text/plain"},
-              body: JSON.stringify({ action:"uploadFoto", token:adminSession.token, idSimas:masjid.idSimas, kategori:activeKat, fileName:file.name, mimeType:file.type, base64, mode:"append" }),
+              body: JSON.stringify(Object.assign({ action:"uploadFoto", token:adminSession.token, kategori:activeKat, fileName:file.name, mimeType:file.type, base64, mode:"append" }, masjid.idSimas?.trim() ? {idSimas:masjid.idSimas} : {namaMasjidFallback:masjid.namaMasjid, desaFallback:masjid.desa||""})),
             });
             const json = await resp.json();
             if (json.ok) {
@@ -750,7 +750,7 @@
         try {
           const resp = await fetchWithTimeout(WEBAPP_URL, {
             method:"POST", headers:{"Content-Type":"text/plain"},
-            body: JSON.stringify({ action:"deleteFoto", token:adminSession.token, idSimas:masjid.idSimas, kategori:activeKat, fileUrl:url }),
+            body: JSON.stringify(Object.assign({ action:"deleteFoto", token:adminSession.token, kategori:activeKat, fileUrl:url }, masjid.idSimas?.trim() ? {idSimas:masjid.idSimas} : {namaMasjidFallback:masjid.namaMasjid, desaFallback:masjid.desa||""})),
           });
           const json = await resp.json();
           if (json.ok) {
@@ -1809,7 +1809,7 @@
     function AdminLoginModal({ onClose, onLoginSuccess }) {
       const [username,setUsername]=useState(""), [password,setPassword]=useState(""), [showPass,setShowPass]=useState(false), [loading,setLoading]=useState(false), [error,setError]=useState(""), [tab,setTab]=useState("login");
       const [regUsername,setRegUsername]=useState(""), [regPassword,setRegPassword]=useState(""), [regNama,setRegNama]=useState(""), [regLoading,setRegLoading]=useState(false), [regMsg,setRegMsg]=useState(null);
-      const handleLogin=async()=>{if(!username.trim()||!password){setError("Username dan password wajib diisi.");return;}setLoading(true);setError("");try{const res=await fetchWithTimeout(WEBAPP_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({action:"login",username:username.trim(),password})});const json=await res.json();if(json.ok){const session={token:json.token,nama:json.nama,level:json.level,desa:json.desa||null,loginAt:Date.now()};sessionStorage.setItem("albumMasjidAdmin",JSON.stringify(session));onLoginSuccess(session);onClose();}else{setError(json.error||"Login gagal.");}}catch(e){setError(err.message || "Gagal menghubungi server.");}finally{setLoading(false);}};
+      const handleLogin=async()=>{if(!username.trim()||!password){setError("Username dan password wajib diisi.");return;}setLoading(true);setError("");try{const res=await fetchWithTimeout(WEBAPP_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({action:"login",username:username.trim(),password})});const json=await res.json();if(json.ok){const session={token:json.token,nama:json.nama,level:json.level,desa:json.desa||null,loginAt:Date.now()};sessionStorage.setItem("albumMasjidAdmin",JSON.stringify(session));onLoginSuccess(session);onClose();}else{setError(json.error||"Login gagal.");}}catch(e){setError(e.message || "Gagal menghubungi server.");}finally{setLoading(false);}};
       const handleRegister=async()=>{if(!regUsername.trim()||!regPassword||!regNama.trim()){setRegMsg({ok:false,text:"Semua field wajib diisi."});return;}setRegLoading(true);setRegMsg(null);try{const res=await fetchWithTimeout(WEBAPP_URL,{method:"POST",headers:{"Content-Type":"text/plain"},body:JSON.stringify({action:"register",username:regUsername.trim(),password:regPassword,namaSurveyor:regNama.trim()})});const json=await res.json();if(json.ok){setRegMsg({ok:true,text:json.message+(json.daftarDesa?.length?" Akses desa: "+json.daftarDesa.join(", ")+".":"")});setRegUsername("");setRegPassword("");setRegNama("");}else{setRegMsg({ok:false,text:json.error||"Pendaftaran gagal."});}}catch(e){setRegMsg({ok:false,text:"Gagal menghubungi server."});}finally{setRegLoading(false);}};
       const inpStyle={width:"100%",padding:"11px 14px",borderRadius:10,border:"1.5px solid #e2d9c8",fontSize:14,fontFamily:"'DM Sans',sans-serif",outline:"none",background:"white",color:"#1a1a1a",boxSizing:"border-box",transition:"border-color .2s"};
       const btn=(primary=true)=>({width:"100%",padding:"12px",borderRadius:10,border:"none",cursor:"pointer",fontSize:14,fontWeight:600,fontFamily:"'DM Sans',sans-serif",transition:"opacity .2s",background:primary?"#1B4332":"#f0e8d8",color:primary?"white":"#1B4332"});
