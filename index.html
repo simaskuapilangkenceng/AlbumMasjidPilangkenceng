@@ -1489,7 +1489,7 @@
     // ════════════════════════════════════════════════════════════
     //  TAB ALBUM
     // ════════════════════════════════════════════════════════════
-    const SURVEYOR_LIST = ["AHSANUL MUAHID, S.Ag","M ROZIF ABDULLOH,S.H.i","ZULAICHAH","MIFTAHUL ANWAR, A.Md","NUR ISMAWATI","SITI MUBAROKAH","FATCHUL AZIZ","MOH CLISON","M. KHOIRUL MUNTOHA AGIL, S.Ag","MUCHARROM","ZAINAL ABIDIN","SITI ZULAIKA, S.H.I"];
+    // SURVEYOR_LIST dihapus — sekarang dynamic dari data (lihat surveyorList di bawah)
 
     function TabAlbum({ data, loading, error, onSelect }) {
       const [search,         setSearch]         = useState("");
@@ -1499,8 +1499,10 @@
       const [filterSurveyor, setFilterSurveyor] = useState("");
       const [showFilter,     setShowFilter]     = useState(false);
 
-      const desaList    = useMemo(() => [...new Set(data.map(m => m.desa).filter(Boolean))].sort(), [data]);
-      const klasList    = useMemo(() => [...new Set(data.map(m => m.lokasiSurvey).filter(Boolean))].sort(), [data]);
+      const desaList      = useMemo(() => [...new Set(data.map(m => m.desa).filter(Boolean))].sort(), [data]);
+      const klasList      = useMemo(() => [...new Set(data.map(m => m.lokasiSurvey).filter(Boolean))].sort(), [data]);
+      // Dynamic dari data sheet — otomatis sinkron tanpa perlu edit kode
+      const surveyorList  = useMemo(() => [...new Set(data.map(m => (m.namaSurveyor||"").trim()).filter(Boolean))].sort(), [data]);
       const kondisiList = ["Baik","Sedang","Rusak Ringan","Rusak Berat"];
 
       const filtered = useMemo(() => data.filter(m => {
@@ -1535,7 +1537,7 @@
                 { label:"Desa",       value:filterDesa,      set:setFilterDesa,      opts:[["","Semua Desa"],       ...desaList.map(d=>[d,d])] },
                 { label:"Klasifikasi",value:filterKlas,      set:setFilterKlas,      opts:[["","Semua Klasifikasi"],...klasList.map(k=>[k,k])] },
                 { label:"Kondisi",    value:filterKondisi,   set:setFilterKondisi,   opts:[["","Semua Kondisi"],    ...kondisiList.map(k=>[k,k])] },
-                { label:"Surveyor",   value:filterSurveyor,  set:setFilterSurveyor,  opts:[["","Semua Surveyor"],   ...SURVEYOR_LIST.map(s=>[s,s])] },
+                { label:"Surveyor",   value:filterSurveyor,  set:setFilterSurveyor,  opts:[["","Semua Surveyor"],   ...surveyorList.map(s=>[s,s])] },
               ].map(f => (
                 <div key={f.label} style={{ position:"relative" }}>
                   <span style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", fontSize:11, pointerEvents:"none", color:"#6b7280" }}>▼</span>
