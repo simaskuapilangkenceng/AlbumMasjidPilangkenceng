@@ -2207,25 +2207,26 @@
 
     // ════════════════════════════════════════════════════════════
     //  TAB STATISTIK PER-DESA — Hanya Super Admin
+    //  Data & visual selaras dengan TabKendaliData
     // ════════════════════════════════════════════════════════════
     function TabStatistikDesa({ session }) {
-      const [loading,    setLoading]    = React.useState(true);
-      const [error,      setError]      = React.useState(null);
-      const [stats,      setStats]      = React.useState(null);
-      const [expandDesa, setExpandDesa] = React.useState({});
-      const [lastUpdate, setLastUpdate] = React.useState(null);
+      const [kdData,     setKdData]     = useState([]);
+      const [loading,    setLoading]    = useState(true);
+      const [error,      setError]      = useState(null);
+      const [expandDesa, setExpandDesa] = useState({});
+      const [modalMasjid, setModalMasjid] = useState(null);
+      const [modalGrup,  setModalGrup]  = useState("identitas");
 
-      async function muatStats() {
+      async function muat() {
         setLoading(true); setError(null);
         try {
-          const res  = await fetchWithTimeout(WEBAPP_URL, {
+          const r = await fetchWithTimeout(WEBAPP_URL, {
             method: "POST", headers: { "Content-Type": "text/plain" },
-            body: JSON.stringify({ action: "getStatsPerDesa", token: session.token }),
+            body: JSON.stringify({ action: "getKendaliDataAdmin", token: session.token }),
           });
-          const json = await res.json();
-          if (!json.ok) throw new Error(json.error || "Gagal memuat statistik.");
-          setStats(json);
-          setLastUpdate(new Date());
+          const resp = await r.json();
+          if (!resp?.ok) throw new Error(resp?.error || "Gagal memuat data.");
+          setKdData(resp.masjid || []);
         } catch(e) {
           setError(e.message);
         } finally {
@@ -2233,198 +2234,235 @@
         }
       }
 
-      React.useEffect(() => { muatStats(); }, []);
+      useEffect(() => { muat(); }, []);
+
+      // Group data per desa
+      const perDesa = useMemo(() => {
+        const map = {};
+        kdData.forEach(m => {
+          const d = m.desa || "Tidak Diketahui";
+          if (!map[d]) map[d] = [];
+          map[d].push(m);
+        });
+        return Object.keys(map).sort((a,b) => a.localeCompare(b,"id")).map(nama => {
+          const masjids = map[nama].slice().sort((a,b) => a.nama.localeCompare(b.nama,"id"));
+          const avgPct  = masjids.length ? Math.round(masjids.reduce((s,m) => s + m.overallPct, 0) / masjids.length) : 0;
+          const lengkap = masjids.filter(m => m.overallPct === 100).length;
+          const perlu   = masjids.filter(m => m.overallPct < 75).length;
+          return { nama, masjids, avgPct, lengkap, perlu };
+        });
+      }, [kdData]);
+
+      const grandSummary = useMemo(() => ({
+        total:   kdData.length,
+        desa:    perDesa.length,
+        lengkap: kdData.filter(m => m.overallPct === 100).length,
+        perlu:   kdData.filter(m => m.overallPct < 75).length,
+        avg:     kdData.length ? Math.round(kdData.reduce((s,m) => s + m.overallPct, 0) / kdData.length) : 0,
+      }), [kdData, perDesa]);
 
       function toggleDesa(nama) {
         setExpandDesa(prev => ({ ...prev, [nama]: !prev[nama] }));
       }
 
-      function kelengkapanColor(pct) {
-        if (pct >= 80) return { bar:"#22c55e", text:"#15803d", bg:"#dcfce7" };
-        if (pct >= 50) return { bar:"#eab308", text:"#a16207", bg:"#fef9c3" };
-        return { bar:"#ef4444", text:"#b91c1c", bg:"#fee2e2" };
-      }
-
-      function pdfColor(selesai, total) {
-        if (total === 0) return "#9ca3af";
-        if (selesai === total) return "#15803d";
-        if (selesai > 0) return "#a16207";
-        return "#b91c1c";
-      }
-
-      function KelengkapanBar({ pct, width }) {
-        const c = kelengkapanColor(pct);
-        return (
-          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-            <div style={{ flex:1, height:6, background:"#f3f4f6", borderRadius:99, overflow:"hidden", minWidth: width || 80 }}>
-              <div style={{ width: pct + "%", height:"100%", background: c.bar, borderRadius:99, transition:"width .4s" }}/>
-            </div>
-            <span style={{ fontSize:11, fontWeight:700, color: c.text, minWidth:34, textAlign:"right" }}>{pct}%</span>
-          </div>
-        );
-      }
-
-      const C = {
-        card: { background:"#fff", border:"1px solid #e2d9c8", borderRadius:14, marginBottom:10, overflow:"hidden" },
-        th:   { padding:"8px 10px", textAlign:"left", color:"#6b7280", fontWeight:700, fontSize:11, whiteSpace:"nowrap", borderBottom:"2px solid #e2d9c8" },
-        td:   { padding:"8px 10px", fontSize:12, color:"#374151", borderBottom:"1px solid #f3f4f6" },
-      };
+      const thSt = { flex:1, padding:"0 6px", fontSize:10, fontWeight:700, color:"#64748B", textTransform:"uppercase", letterSpacing:".07em" };
 
       if (loading) return (
-        <div style={{ textAlign:"center", padding:"60px 20px", color:"#6b7280" }}>
-          <div style={{ fontSize:32, marginBottom:12 }}>⏳</div>
-          <div style={{ fontSize:14 }}>Memuat statistik per desa...</div>
+        <div style={{ textAlign:"center", padding:60, color:"#94A3B8" }}>
+          <div style={{ fontSize:36, marginBottom:12 }}>⏳</div>
+          <p style={{ margin:0 }}>Memuat Statistik Per Desa…</p>
         </div>
       );
 
       if (error) return (
-        <div style={{ background:"#fee2e2", color:"#b91c1c", borderRadius:12, padding:"16px 20px", margin:"20px 0", fontSize:13 }}>
-          ❌ {error}
-          <button onClick={muatStats} style={{ marginLeft:12, padding:"5px 12px", borderRadius:8, border:"1px solid #fca5a5", background:"#fff", color:"#b91c1c", cursor:"pointer", fontSize:12, fontFamily:"'DM Sans',sans-serif" }}>Coba Lagi</button>
+        <div style={{ background:"#FEF2F2", border:"1px solid #FECACA", borderRadius:12, padding:20, color:"#991B1B", fontSize:13, display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
+          <span>⚠️ {error}</span>
+          <button onClick={muat} style={{ padding:"6px 14px", background:"#991B1B", color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>🔄 Coba Lagi</button>
         </div>
       );
 
-      if (!stats) return null;
-
-      const { summary, desa } = stats;
-
       return (
-        <div style={{ maxWidth:900, margin:"0 auto", padding:"8px 0 40px" }}>
-
-          {/* Header */}
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16, flexWrap:"wrap", gap:8 }}>
+        <div>
+          {/* Judul */}
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20, flexWrap:"wrap", gap:12 }}>
             <div>
-              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:20, fontWeight:700, color:"#1B4332" }}>🏘️ Statistik Per Desa</div>
-              <div style={{ fontSize:12, color:"#6b7280", marginTop:3 }}>
-                Ringkasan kelengkapan data masjid per desa · {lastUpdate ? "Diperbarui " + lastUpdate.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}) : ""}
+              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:19, fontWeight:700, color:"#1B4332" }}>🏘️ Statistik Per Desa</div>
+              <div style={{ fontSize:12, color:"#9ca3af", marginTop:2 }}>
+                Rekapitulasi kelengkapan data per desa · {grandSummary.total} lokasi dari {grandSummary.desa} desa
               </div>
             </div>
-            <button onClick={muatStats} disabled={loading} style={{ padding:"7px 16px", borderRadius:9, border:"none", cursor:"pointer", fontSize:12.5, fontWeight:600, fontFamily:"'DM Sans',sans-serif", background:"#1B4332", color:"#fff" }}>
-              🔄 Refresh
-            </button>
+            <button onClick={muat} style={{ padding:"7px 14px", background:"#1B4332", color:"#fff", border:"none", borderRadius:8, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>🔄 Refresh</button>
           </div>
 
-          {/* Summary cards */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:10, marginBottom:18 }}>
+          {/* Summary Cards — selaras dengan TabKendaliData */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:12, marginBottom:20 }}>
             {[
-              { label:"Total Masjid/Musholla", val: summary.totalMasjid, color:"#1B4332", bg:"#f0fdf4" },
-              { label:"Jumlah Desa",           val: summary.totalDesa,   color:"#0369a1", bg:"#eff6ff" },
-              { label:"PDF Selesai",           val: summary.totalPdfSelesai + " / " + summary.totalMasjid, color: summary.totalPdfSelesai===summary.totalMasjid?"#15803d":"#b91c1c", bg: summary.totalPdfSelesai===summary.totalMasjid?"#dcfce7":"#fee2e2" },
-              { label:"Rata Kelengkapan",      val: summary.rataKelengkapan + "%", color: kelengkapanColor(summary.rataKelengkapan).text, bg: kelengkapanColor(summary.rataKelengkapan).bg },
-              { label:"Total Foto Upload",     val: summary.totalFoto,   color:"#7c3aed", bg:"#f5f3ff" },
-            ].map(s => (
-              <div key={s.label} style={{ background:s.bg, border:"1px solid #e2d9c8", borderRadius:12, padding:"12px 14px" }}>
-                <div style={{ fontSize:11, color:"#6b7280", marginBottom:4 }}>{s.label}</div>
-                <div style={{ fontSize:20, fontWeight:800, color:s.color, lineHeight:1.1 }}>{s.val}</div>
+              { label:"Total Lokasi",   val:grandSummary.total,   color:"#0EA5E9", icon:"🕌" },
+              { label:"Jumlah Desa",    val:grandSummary.desa,    color:"#0284C7", icon:"🏘️" },
+              { label:"Lengkap",        val:grandSummary.lengkap, color:"#059669", icon:"✅" },
+              { label:"Perlu Diisi",    val:grandSummary.perlu,   color:"#DC2626", icon:"❌" },
+              { label:"Rata-rata",      val:grandSummary.avg+"%", color:"#7C3AED", icon:"📊" },
+            ].map((c,i) => (
+              <div key={i} style={{ background:"#fff", borderRadius:12, padding:"14px 16px", border:"1px solid #E2E8F0", boxShadow:"0 1px 3px rgba(0,0,0,.04)" }}>
+                <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:6 }}>
+                  <span style={{ fontSize:15 }}>{c.icon}</span>
+                  <span style={{ fontSize:9, fontWeight:700, color:"#94A3B8", textTransform:"uppercase", letterSpacing:".06em" }}>{c.label}</span>
+                </div>
+                <div style={{ fontSize:22, fontWeight:800, color:c.color }}>{c.val}</div>
               </div>
             ))}
           </div>
 
-          {/* Tabel per desa */}
-          {desa.length === 0 ? (
-            <div style={{ textAlign:"center", padding:"40px", color:"#9ca3af" }}>Belum ada data masjid.</div>
-          ) : desa.map(d => {
+          {/* Accordion per desa */}
+          {perDesa.map(d => {
             const isOpen = !!expandDesa[d.nama];
-            const kColor = kelengkapanColor(d.rataKelengkapan);
-            const pdfBg  = d.pdfSelesai === d.jumlahMasjid ? "#dcfce7" : d.pdfSelesai > 0 ? "#fef9c3" : "#fee2e2";
-            const pdfTx  = pdfColor(d.pdfSelesai, d.jumlahMasjid);
+            const bc = d.avgPct===100?"#059669":d.avgPct>=75?"#D97706":d.avgPct>=50?"#F59E0B":"#DC2626";
+            const bb = d.avgPct===100?"#ECFDF5":d.avgPct>=75?"#FFFBEB":d.avgPct>=50?"#FEF3C7":"#FEF2F2";
             return (
-              <div key={d.nama} style={C.card}>
+              <div key={d.nama} style={{ background:"#fff", border:"1px solid #E2E8F0", borderRadius:12, marginBottom:10, overflow:"hidden", boxShadow:"0 1px 3px rgba(0,0,0,.04)" }}>
 
-                {/* Baris header desa — klik untuk expand */}
+                {/* Header desa */}
                 <button onClick={() => toggleDesa(d.nama)} style={{
                   width:"100%", display:"flex", alignItems:"center", gap:10,
-                  padding:"13px 16px", background: isOpen ? "#f8f4ed" : "#fff",
+                  padding:"13px 16px", background: isOpen ? "#F8FAFC" : "#fff",
                   border:"none", cursor:"pointer", textAlign:"left",
                 }}>
                   <span style={{ fontSize:18 }}>🏡</span>
-                  <span style={{ flex:1, fontFamily:"'Playfair Display',serif", fontSize:14, fontWeight:700, color:"#1B4332" }}>
-                    {d.nama}
-                  </span>
+                  <span style={{ flex:1, fontFamily:"'Playfair Display',serif", fontSize:14, fontWeight:700, color:"#1B4332" }}>{d.nama}</span>
 
-                  {/* Badge jumlah masjid */}
-                  <span style={{ fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:20, background:"#f0e8d8", color:"#1B4332", whiteSpace:"nowrap" }}>
-                    🕌 {d.jumlahMasjid}
+                  {/* Badge jumlah */}
+                  <span style={{ fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:20, background:"#EFF6FF", color:"#0284C7", whiteSpace:"nowrap" }}>
+                    🕌 {d.masjids.length}
                   </span>
-
-                  {/* Badge PDF */}
-                  <span style={{ fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:20, background:pdfBg, color:pdfTx, whiteSpace:"nowrap" }}>
-                    📄 {d.pdfSelesai}/{d.jumlahMasjid}
+                  {/* Badge lengkap */}
+                  <span style={{ fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:20, background:"#ECFDF5", color:"#059669", whiteSpace:"nowrap" }}>
+                    ✅ {d.lengkap}/{d.masjids.length}
                   </span>
-
-                  {/* Badge Foto */}
-                  <span style={{ fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:20, background:"#f5f3ff", color:"#7c3aed", whiteSpace:"nowrap" }}>
-                    🖼️ {d.totalFoto}
+                  {/* Badge perlu */}
+                  {d.perlu > 0 && (
+                    <span style={{ fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:20, background:"#FEF2F2", color:"#DC2626", whiteSpace:"nowrap" }}>
+                      ❌ {d.perlu}
+                    </span>
+                  )}
+                  {/* Badge rata-rata */}
+                  <span style={{ fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:20, background:bb, color:bc, whiteSpace:"nowrap" }}>
+                    📊 {d.avgPct}%
                   </span>
-
-                  {/* Bar kelengkapan */}
-                  <div style={{ minWidth:120, display:"flex", alignItems:"center", gap:6 }}>
-                    <div style={{ flex:1, height:6, background:"#f3f4f6", borderRadius:99, overflow:"hidden" }}>
-                      <div style={{ width:d.rataKelengkapan+"%", height:"100%", background:kColor.bar, borderRadius:99 }}/>
-                    </div>
-                    <span style={{ fontSize:11, fontWeight:700, color:kColor.text, minWidth:34, textAlign:"right" }}>{d.rataKelengkapan}%</span>
+                  {/* Mini bar */}
+                  <div style={{ minWidth:80, height:5, background:"#E5E7EB", borderRadius:99, overflow:"hidden" }}>
+                    <div style={{ width:d.avgPct+"%", height:"100%", background:bc, borderRadius:99 }}/>
                   </div>
 
-                  <span style={{ color:"#1B4332", transform:isOpen?"rotate(180deg)":"rotate(0deg)", transition:"transform .25s", fontSize:11, flexShrink:0 }}>▼</span>
+                  <span style={{ color:"#94A3B8", transform:isOpen?"rotate(180deg)":"rotate(0deg)", transition:"transform .25s", fontSize:11, flexShrink:0 }}>▼</span>
                 </button>
 
-                {/* Detail masjid — expand */}
+                {/* Tabel masjid per desa — selaras header TabKendaliData */}
                 {isOpen && (
-                  <div style={{ borderTop:"1px solid #f3f4f6", overflowX:"auto" }}>
-                    <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, minWidth:560 }}>
-                      <thead>
-                        <tr>
-                          {["#","Nama Masjid/Musholla","Tipologi","Kelengkapan","Foto","PDF","Status","Surveyor"].map(h => (
-                            <th key={h} style={C.th}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {d.masjid.map((m, i) => {
-                          const mc = kelengkapanColor(m.kelengkapan);
+                  <div style={{ borderTop:"1px solid #F1F5F9", overflowX:"auto" }}>
+                    {/* Header tabel */}
+                    <div style={{ display:"flex", background:"#F8FAFC", borderBottom:"1px solid #E2E8F0", padding:"10px 14px", minWidth:900 }}>
+                      <div style={{ ...thSt, flex:2 }}>Nama & Lokasi</div>
+                      <div style={{ ...thSt, flex:1.2 }}>Surveyor</div>
+                      <div style={{ ...thSt, flex:.85, textAlign:"center" }}>Total</div>
+                      {KD_GROUPS.map(g => <div key={g.id} style={{ ...thSt, textAlign:"center" }}>{g.icon} {g.label}</div>)}
+                      <div style={{ ...thSt, flex:.65, textAlign:"center" }}>Aksi</div>
+                    </div>
+                    {/* Baris masjid */}
+                    {d.masjids.map((m, i) => (
+                      <div key={i} style={{ display:"flex", alignItems:"center", padding:"10px 14px", borderBottom:"1px solid #F8FAFC", background:i%2===0?"#fff":"#FAFAFA", minWidth:900 }}>
+                        {/* Nama */}
+                        <div style={{ flex:2, padding:"0 6px", minWidth:0 }}>
+                          <div style={{ fontSize:13, fontWeight:700, color:"#0F172A", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{m.nama}</div>
+                          <div style={{ fontSize:10, color:"#94A3B8", marginTop:1 }}>{m.tipologi || "—"}</div>
+                        </div>
+                        {/* Surveyor */}
+                        <div style={{ flex:1.2, padding:"0 6px", fontSize:12, color:"#64748B" }}>
+                          {m.surveyor
+                            ? <span style={{ background:"#EFF6FF", color:"#1D4ED8", padding:"2px 8px", borderRadius:20, fontSize:11, fontWeight:600 }}>👤 {m.surveyor}</span>
+                            : "—"}
+                        </div>
+                        {/* Total % */}
+                        <div style={{ flex:.85, padding:"0 6px", textAlign:"center" }}>
+                          <KdBadge pct={m.overallPct}/>
+                          <KdBar pct={m.overallPct} color={m.overallPct===100?"#059669":m.overallPct>=75?"#D97706":m.overallPct>=50?"#F59E0B":"#DC2626"}/>
+                        </div>
+                        {/* Per grup */}
+                        {KD_GROUPS.map(g => {
+                          const grp = m.groups?.find(x => x.id === g.id);
                           return (
-                            <tr key={i} style={{ background:i%2===0?"#fff":"#fafaf7" }}>
-                              <td style={{ ...C.td, color:"#9ca3af", width:28 }}>{i+1}</td>
-                              <td style={{ ...C.td, fontWeight:600, color:"#1B4332", maxWidth:200 }}>
-                                <div>{m.nama}</div>
-                                {m.idSimas && <div style={{ fontSize:10, color:"#9ca3af", marginTop:1 }}>ID: {m.idSimas}</div>}
-                              </td>
-                              <td style={{ ...C.td, color:"#6b7280" }}>{m.tipologi || "—"}</td>
-                              <td style={{ ...C.td, minWidth:120 }}>
-                                <KelengkapanBar pct={m.kelengkapan} width={70}/>
-                              </td>
-                              <td style={{ ...C.td, textAlign:"center" }}>
-                                <span style={{ fontWeight:700, color:"#7c3aed" }}>{m.jumlahFoto}</span>
-                              </td>
-                              <td style={{ ...C.td, textAlign:"center" }}>
-                                {m.pdfSelesai ? (
-                                  <a href={m.pdfUrl} target="_blank" rel="noreferrer"
-                                    style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"3px 8px", borderRadius:20, background:"#dcfce7", color:"#15803d", fontWeight:700, fontSize:10.5, textDecoration:"none" }}>
-                                    ✅ Lihat
-                                  </a>
-                                ) : (
-                                  <span style={{ padding:"3px 8px", borderRadius:20, background:"#fee2e2", color:"#b91c1c", fontWeight:700, fontSize:10.5 }}>❌ Belum</span>
-                                )}
-                              </td>
-                              <td style={{ ...C.td }}>
-                                <span style={{ fontSize:10.5, padding:"2px 7px", borderRadius:20, fontWeight:600,
-                                  background: m.statusProses?.includes("Selesai") ? "#dcfce7" : m.statusProses?.includes("ERROR") ? "#fee2e2" : "#fef9c3",
-                                  color:      m.statusProses?.includes("Selesai") ? "#15803d" : m.statusProses?.includes("ERROR") ? "#b91c1c" : "#a16207"
-                                }}>
-                                  {m.statusProses || "—"}
-                                </span>
-                              </td>
-                              <td style={{ ...C.td, color:"#6b7280", fontSize:11 }}>{m.surveyor || "—"}</td>
-                            </tr>
+                            <div key={g.id} style={{ flex:1, padding:"0 6px", textAlign:"center" }}>
+                              {grp ? <><KdBadge pct={grp.pct}/><KdBar pct={grp.pct} color={g.color}/></> : "—"}
+                            </div>
                           );
                         })}
-                      </tbody>
-                    </table>
+                        {/* Aksi */}
+                        <div style={{ flex:.65, padding:"0 6px", textAlign:"center" }}>
+                          <button onClick={() => { setModalMasjid(m); setModalGrup("identitas"); }}
+                            style={{ padding:"4px 10px", background:"#EFF6FF", color:"#1D4ED8", border:"1px solid #BFDBFE", borderRadius:7, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", whiteSpace:"nowrap" }}>
+                            🔍 Detail
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
             );
           })}
+
+          {/* Legend — sama dengan TabKendaliData */}
+          <div style={{ marginTop:14, display:"flex", gap:16, flexWrap:"wrap", fontSize:11, color:"#64748B" }}>
+            <span style={{ color:"#059669" }}>● Lengkap (100%)</span>
+            <span style={{ color:"#D97706" }}>● Hampir (75–99%)</span>
+            <span style={{ color:"#F59E0B" }}>● Sedang (50–74%)</span>
+            <span style={{ color:"#DC2626" }}>● Perlu Dilengkapi (&lt;50%)</span>
+          </div>
+
+          {/* Modal Detail — identik dengan TabKendaliData */}
+          {modalMasjid && (
+            <div onClick={() => setModalMasjid(null)} style={{ position:"fixed", inset:0, background:"rgba(15,23,42,.55)", zIndex:9999, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}>
+              <div onClick={e => e.stopPropagation()} style={{ background:"#fff", borderRadius:16, width:"100%", maxWidth:680, maxHeight:"90vh", display:"flex", flexDirection:"column", boxShadow:"0 24px 60px rgba(0,0,0,.25)" }}>
+                <div style={{ padding:"20px 24px 14px", borderBottom:"1px solid #F1F5F9", display:"flex", justifyContent:"space-between", alignItems:"flex-start", flexShrink:0 }}>
+                  <div>
+                    <div style={{ fontSize:10, fontWeight:700, color:"#64748B", letterSpacing:".08em", textTransform:"uppercase" }}>Detail Kendali Data</div>
+                    <div style={{ fontSize:17, fontWeight:800, color:"#0F172A", marginTop:4 }}>{modalMasjid.nama}</div>
+                    <div style={{ fontSize:12, color:"#94A3B8", marginTop:2 }}>
+                      {modalMasjid.desa} · {modalMasjid.tipologi}
+                      {modalMasjid.surveyor && <span style={{ marginLeft:8, background:"#EFF6FF", color:"#1D4ED8", padding:"1px 8px", borderRadius:20, fontSize:11, fontWeight:600 }}>👤 {modalMasjid.surveyor}</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => setModalMasjid(null)} style={{ background:"#F1F5F9", border:"none", borderRadius:8, width:32, height:32, cursor:"pointer", fontSize:16, color:"#64748B", lineHeight:1 }}>✕</button>
+                </div>
+                <div style={{ display:"flex", gap:6, padding:"12px 24px", borderBottom:"1px solid #F1F5F9", flexWrap:"wrap", flexShrink:0 }}>
+                  {modalMasjid.groups.map(g => {
+                    const gd  = KD_GROUPS.find(x => x.id === g.id);
+                    const act = modalGrup === g.id;
+                    return (
+                      <button key={g.id} onClick={() => setModalGrup(g.id)}
+                        style={{ display:"flex", alignItems:"center", gap:5, padding:"6px 11px", borderRadius:8, border:`1.5px solid ${act?(gd?.color||"#1D4ED8"):"#E2E8F0"}`, background:act?"#EFF6FF":"#fff", cursor:"pointer", fontSize:12, fontWeight:act?700:500, color:act?(gd?.color||"#1D4ED8"):"#64748B", whiteSpace:"nowrap", fontFamily:"'DM Sans',sans-serif", flexShrink:0 }}>
+                        {gd?.icon} {g.label} <KdBadge pct={g.pct}/>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ overflowY:"auto", padding:"16px 24px 24px", flex:1 }}>
+                  <div style={{ display:"grid", gap:7 }}>
+                    {(modalMasjid.groups.find(g => g.id === modalGrup)?.detail || []).map((f,i) => (
+                      <div key={i} style={{ display:"flex", alignItems:"center", padding:"9px 12px", borderRadius:10, background:f.filled?"#F8FAFF":"#FFF7F7", border:`1px solid ${f.filled?"#DBEAFE":"#FEE2E2"}`, gap:10 }}>
+                        <span style={{ fontSize:14, flexShrink:0 }}>{f.filled?"✅":"❌"}</span>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:12, fontWeight:600, color:f.filled?"#1E40AF":"#991B1B" }}>{f.label}</div>
+                          {f.filled
+                            ? <div style={{ fontSize:11, color:"#64748B", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{f.value.startsWith("http")?"📎 File/Link tersedia":f.value}</div>
+                            : <div style={{ fontSize:11, color:"#EF4444" }}>Belum diisi</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
