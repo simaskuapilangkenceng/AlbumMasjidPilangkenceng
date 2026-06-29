@@ -975,13 +975,21 @@
 
       const buildInitial = () => {
         const init = {};
+        // Field yang default-nya "Tidak Ada" jika kosong di sheet
+        const DEFAULT_TIDAK_ADA = new Set([
+          "usahaProduktif",
+          "namaMajelis","namaPengasuh","kitabDikaji","jamaahRutin",
+          "namaMajelis2","namaPengasuh2","kitabDikaji2","jamaahRutin2",
+          "email","medsos",
+        ]);
         editableFields().forEach(f => {
           if (f.type === "checkbox") {
             const v = (masjid[f.key] || "").trim();
             // Default Ada (true) jika kosong, kecuali eksplisit "Tidak Ada" / "Tidak"
             init[f.key] = v === "" ? true : (v.toLowerCase() !== "tidak" && v.toLowerCase() !== "tidak ada");
           } else {
-            init[f.key] = masjid[f.key] || "";
+            const raw = (masjid[f.key] || "").trim();
+            init[f.key] = raw !== "" ? raw : (DEFAULT_TIDAK_ADA.has(f.key) ? "Tidak Ada" : "");
           }
         });
         return init;
@@ -1039,7 +1047,7 @@
       const isWakafBelum      = statusTanah === "Wakaf Belum Bersertifikat";
       // SHM dan Tanah Kas Desa → semua field wakaf dinonaktifkan
       const isTanahNonWakaf   = statusTanah === "SHM" || statusTanah === "Tanah Kas Desa";
-      const wakafOnlyFields   = ["nomorSertifWakaf","tglSertifWakaf","nomorAIW","tglAIW","namaWakif","namaNadzir"];
+      const wakafOnlyFields   = ["nomorSertifWakaf","tglSertifWakaf","nomorAIW","tglAIW","namaWakif","namaNadzir","wakafProduktif","usahaProduktif"];
       const aiwOnlyFields     = ["nomorAIW","tglAIW","namaWakif","namaNadzir"];
 
       const isFieldDisabled = (key) => {
