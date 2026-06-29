@@ -2206,6 +2206,230 @@
 
 
     // ════════════════════════════════════════════════════════════
+    //  TAB STATISTIK PER-DESA — Hanya Super Admin
+    // ════════════════════════════════════════════════════════════
+    function TabStatistikDesa({ session }) {
+      const [loading,    setLoading]    = React.useState(true);
+      const [error,      setError]      = React.useState(null);
+      const [stats,      setStats]      = React.useState(null);
+      const [expandDesa, setExpandDesa] = React.useState({});
+      const [lastUpdate, setLastUpdate] = React.useState(null);
+
+      async function muatStats() {
+        setLoading(true); setError(null);
+        try {
+          const res  = await fetchWithTimeout(WEBAPP_URL, {
+            method: "POST", headers: { "Content-Type": "text/plain" },
+            body: JSON.stringify({ action: "getStatsPerDesa", token: session.token }),
+          });
+          const json = await res.json();
+          if (!json.ok) throw new Error(json.error || "Gagal memuat statistik.");
+          setStats(json);
+          setLastUpdate(new Date());
+        } catch(e) {
+          setError(e.message);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      React.useEffect(() => { muatStats(); }, []);
+
+      function toggleDesa(nama) {
+        setExpandDesa(prev => ({ ...prev, [nama]: !prev[nama] }));
+      }
+
+      function kelengkapanColor(pct) {
+        if (pct >= 80) return { bar:"#22c55e", text:"#15803d", bg:"#dcfce7" };
+        if (pct >= 50) return { bar:"#eab308", text:"#a16207", bg:"#fef9c3" };
+        return { bar:"#ef4444", text:"#b91c1c", bg:"#fee2e2" };
+      }
+
+      function pdfColor(selesai, total) {
+        if (total === 0) return "#9ca3af";
+        if (selesai === total) return "#15803d";
+        if (selesai > 0) return "#a16207";
+        return "#b91c1c";
+      }
+
+      function KelengkapanBar({ pct, width }) {
+        const c = kelengkapanColor(pct);
+        return (
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <div style={{ flex:1, height:6, background:"#f3f4f6", borderRadius:99, overflow:"hidden", minWidth: width || 80 }}>
+              <div style={{ width: pct + "%", height:"100%", background: c.bar, borderRadius:99, transition:"width .4s" }}/>
+            </div>
+            <span style={{ fontSize:11, fontWeight:700, color: c.text, minWidth:34, textAlign:"right" }}>{pct}%</span>
+          </div>
+        );
+      }
+
+      const C = {
+        card: { background:"#fff", border:"1px solid #e2d9c8", borderRadius:14, marginBottom:10, overflow:"hidden" },
+        th:   { padding:"8px 10px", textAlign:"left", color:"#6b7280", fontWeight:700, fontSize:11, whiteSpace:"nowrap", borderBottom:"2px solid #e2d9c8" },
+        td:   { padding:"8px 10px", fontSize:12, color:"#374151", borderBottom:"1px solid #f3f4f6" },
+      };
+
+      if (loading) return (
+        <div style={{ textAlign:"center", padding:"60px 20px", color:"#6b7280" }}>
+          <div style={{ fontSize:32, marginBottom:12 }}>⏳</div>
+          <div style={{ fontSize:14 }}>Memuat statistik per desa...</div>
+        </div>
+      );
+
+      if (error) return (
+        <div style={{ background:"#fee2e2", color:"#b91c1c", borderRadius:12, padding:"16px 20px", margin:"20px 0", fontSize:13 }}>
+          ❌ {error}
+          <button onClick={muatStats} style={{ marginLeft:12, padding:"5px 12px", borderRadius:8, border:"1px solid #fca5a5", background:"#fff", color:"#b91c1c", cursor:"pointer", fontSize:12, fontFamily:"'DM Sans',sans-serif" }}>Coba Lagi</button>
+        </div>
+      );
+
+      if (!stats) return null;
+
+      const { summary, desa } = stats;
+
+      return (
+        <div style={{ maxWidth:900, margin:"0 auto", padding:"8px 0 40px" }}>
+
+          {/* Header */}
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16, flexWrap:"wrap", gap:8 }}>
+            <div>
+              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:20, fontWeight:700, color:"#1B4332" }}>🏘️ Statistik Per Desa</div>
+              <div style={{ fontSize:12, color:"#6b7280", marginTop:3 }}>
+                Ringkasan kelengkapan data masjid per desa · {lastUpdate ? "Diperbarui " + lastUpdate.toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}) : ""}
+              </div>
+            </div>
+            <button onClick={muatStats} disabled={loading} style={{ padding:"7px 16px", borderRadius:9, border:"none", cursor:"pointer", fontSize:12.5, fontWeight:600, fontFamily:"'DM Sans',sans-serif", background:"#1B4332", color:"#fff" }}>
+              🔄 Refresh
+            </button>
+          </div>
+
+          {/* Summary cards */}
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(130px,1fr))", gap:10, marginBottom:18 }}>
+            {[
+              { label:"Total Masjid/Musholla", val: summary.totalMasjid, color:"#1B4332", bg:"#f0fdf4" },
+              { label:"Jumlah Desa",           val: summary.totalDesa,   color:"#0369a1", bg:"#eff6ff" },
+              { label:"PDF Selesai",           val: summary.totalPdfSelesai + " / " + summary.totalMasjid, color: summary.totalPdfSelesai===summary.totalMasjid?"#15803d":"#b91c1c", bg: summary.totalPdfSelesai===summary.totalMasjid?"#dcfce7":"#fee2e2" },
+              { label:"Rata Kelengkapan",      val: summary.rataKelengkapan + "%", color: kelengkapanColor(summary.rataKelengkapan).text, bg: kelengkapanColor(summary.rataKelengkapan).bg },
+              { label:"Total Foto Upload",     val: summary.totalFoto,   color:"#7c3aed", bg:"#f5f3ff" },
+            ].map(s => (
+              <div key={s.label} style={{ background:s.bg, border:"1px solid #e2d9c8", borderRadius:12, padding:"12px 14px" }}>
+                <div style={{ fontSize:11, color:"#6b7280", marginBottom:4 }}>{s.label}</div>
+                <div style={{ fontSize:20, fontWeight:800, color:s.color, lineHeight:1.1 }}>{s.val}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabel per desa */}
+          {desa.length === 0 ? (
+            <div style={{ textAlign:"center", padding:"40px", color:"#9ca3af" }}>Belum ada data masjid.</div>
+          ) : desa.map(d => {
+            const isOpen = !!expandDesa[d.nama];
+            const kColor = kelengkapanColor(d.rataKelengkapan);
+            const pdfBg  = d.pdfSelesai === d.jumlahMasjid ? "#dcfce7" : d.pdfSelesai > 0 ? "#fef9c3" : "#fee2e2";
+            const pdfTx  = pdfColor(d.pdfSelesai, d.jumlahMasjid);
+            return (
+              <div key={d.nama} style={C.card}>
+
+                {/* Baris header desa — klik untuk expand */}
+                <button onClick={() => toggleDesa(d.nama)} style={{
+                  width:"100%", display:"flex", alignItems:"center", gap:10,
+                  padding:"13px 16px", background: isOpen ? "#f8f4ed" : "#fff",
+                  border:"none", cursor:"pointer", textAlign:"left",
+                }}>
+                  <span style={{ fontSize:18 }}>🏡</span>
+                  <span style={{ flex:1, fontFamily:"'Playfair Display',serif", fontSize:14, fontWeight:700, color:"#1B4332" }}>
+                    {d.nama}
+                  </span>
+
+                  {/* Badge jumlah masjid */}
+                  <span style={{ fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:20, background:"#f0e8d8", color:"#1B4332", whiteSpace:"nowrap" }}>
+                    🕌 {d.jumlahMasjid}
+                  </span>
+
+                  {/* Badge PDF */}
+                  <span style={{ fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:20, background:pdfBg, color:pdfTx, whiteSpace:"nowrap" }}>
+                    📄 {d.pdfSelesai}/{d.jumlahMasjid}
+                  </span>
+
+                  {/* Badge Foto */}
+                  <span style={{ fontSize:11, fontWeight:700, padding:"3px 9px", borderRadius:20, background:"#f5f3ff", color:"#7c3aed", whiteSpace:"nowrap" }}>
+                    🖼️ {d.totalFoto}
+                  </span>
+
+                  {/* Bar kelengkapan */}
+                  <div style={{ minWidth:120, display:"flex", alignItems:"center", gap:6 }}>
+                    <div style={{ flex:1, height:6, background:"#f3f4f6", borderRadius:99, overflow:"hidden" }}>
+                      <div style={{ width:d.rataKelengkapan+"%", height:"100%", background:kColor.bar, borderRadius:99 }}/>
+                    </div>
+                    <span style={{ fontSize:11, fontWeight:700, color:kColor.text, minWidth:34, textAlign:"right" }}>{d.rataKelengkapan}%</span>
+                  </div>
+
+                  <span style={{ color:"#1B4332", transform:isOpen?"rotate(180deg)":"rotate(0deg)", transition:"transform .25s", fontSize:11, flexShrink:0 }}>▼</span>
+                </button>
+
+                {/* Detail masjid — expand */}
+                {isOpen && (
+                  <div style={{ borderTop:"1px solid #f3f4f6", overflowX:"auto" }}>
+                    <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12, minWidth:560 }}>
+                      <thead>
+                        <tr>
+                          {["#","Nama Masjid/Musholla","Tipologi","Kelengkapan","Foto","PDF","Status","Surveyor"].map(h => (
+                            <th key={h} style={C.th}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {d.masjid.map((m, i) => {
+                          const mc = kelengkapanColor(m.kelengkapan);
+                          return (
+                            <tr key={i} style={{ background:i%2===0?"#fff":"#fafaf7" }}>
+                              <td style={{ ...C.td, color:"#9ca3af", width:28 }}>{i+1}</td>
+                              <td style={{ ...C.td, fontWeight:600, color:"#1B4332", maxWidth:200 }}>
+                                <div>{m.nama}</div>
+                                {m.idSimas && <div style={{ fontSize:10, color:"#9ca3af", marginTop:1 }}>ID: {m.idSimas}</div>}
+                              </td>
+                              <td style={{ ...C.td, color:"#6b7280" }}>{m.tipologi || "—"}</td>
+                              <td style={{ ...C.td, minWidth:120 }}>
+                                <KelengkapanBar pct={m.kelengkapan} width={70}/>
+                              </td>
+                              <td style={{ ...C.td, textAlign:"center" }}>
+                                <span style={{ fontWeight:700, color:"#7c3aed" }}>{m.jumlahFoto}</span>
+                              </td>
+                              <td style={{ ...C.td, textAlign:"center" }}>
+                                {m.pdfSelesai ? (
+                                  <a href={m.pdfUrl} target="_blank" rel="noreferrer"
+                                    style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"3px 8px", borderRadius:20, background:"#dcfce7", color:"#15803d", fontWeight:700, fontSize:10.5, textDecoration:"none" }}>
+                                    ✅ Lihat
+                                  </a>
+                                ) : (
+                                  <span style={{ padding:"3px 8px", borderRadius:20, background:"#fee2e2", color:"#b91c1c", fontWeight:700, fontSize:10.5 }}>❌ Belum</span>
+                                )}
+                              </td>
+                              <td style={{ ...C.td }}>
+                                <span style={{ fontSize:10.5, padding:"2px 7px", borderRadius:20, fontWeight:600,
+                                  background: m.statusProses?.includes("Selesai") ? "#dcfce7" : m.statusProses?.includes("ERROR") ? "#fee2e2" : "#fef9c3",
+                                  color:      m.statusProses?.includes("Selesai") ? "#15803d" : m.statusProses?.includes("ERROR") ? "#b91c1c" : "#a16207"
+                                }}>
+                                  {m.statusProses || "—"}
+                                </span>
+                              </td>
+                              <td style={{ ...C.td, color:"#6b7280", fontSize:11 }}>{m.surveyor || "—"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ════════════════════════════════════════════════════════════
     //  TAB SUPER ADMIN PANEL v2 — Lengkap Jangka Panjang
     // ════════════════════════════════════════════════════════════
     function TabSuperAdminPanel({ session }) {
@@ -2698,6 +2922,7 @@
         { id:"statistik", icon:"📊",  label:"Statistik" },
         { id:"kiblat",    icon:"🧭",  label:"Kiblat"    },
         ...(adminSession ? [{ id:"kendali", icon:"📋", label:"Kendali Data" }] : []),
+        ...(adminSession?.level === "super" ? [{ id:"statistikDesa", icon:"🏘️", label:"Statistik Desa" }] : []),
         ...(adminSession?.level === "super" ? [{ id:"panel", icon:"⚙️", label:"Panel Admin" }] : []),
       ];
 
@@ -2766,6 +2991,7 @@
             {tab === "statistik" && <TabStatistik data={data}/>}
             {tab === "kiblat"    && <TabKiblat/>}
             {tab === "kendali"   && adminSession && <TabKendaliData session={adminSession} allData={data} onOpenDetail={setSelected}/>}
+            {tab === "statistikDesa" && adminSession?.level === "super" && <TabStatistikDesa session={adminSession} />}
             {tab === "panel" && adminSession?.level === "super" && <TabSuperAdminPanel session={adminSession} />}
 
             <div style={{ marginTop:40, paddingTop:16, borderTop:"1px solid #e8e0d0", textAlign:"center", fontSize:11, color:"#9ca3af", lineHeight:1.8 }}>
