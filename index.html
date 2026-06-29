@@ -2566,6 +2566,21 @@
         else showNotif(false, j?.error);
       }
 
+      async function handleOverwritePdf() {
+        const total = dataCheck?.totalData || 0;
+        if (!window.confirm(
+          "⚠️ OVERWRITE SEMUA PDF\n\n" +
+          "Akan me-regenerate PDF untuk SEMUA " + total + " masjid/musholla\n" +
+          "(termasuk yang sudah punya PDF).\n\n" +
+          "Proses ini membutuhkan 3-6 menit dan tidak bisa dibatalkan.\n\n" +
+          "Lanjutkan?"
+        )) return;
+        showNotif(true, "⏳ Sedang overwrite semua PDF (" + total + " data)... Harap tunggu, jangan tutup halaman.");
+        const j = await callAction("overwriteSemuaPdf");
+        if (j?.ok) { showNotif(true, "✅ " + j.message); const d = await callAction("cekTanpaFolder"); if(d?.ok) setDataCheck(d); }
+        else showNotif(false, j?.error);
+      }
+
       async function handleResetPassword() {
         if (!pwTarget || !pwBaru) { showNotif(false, "Pilih user dan isi password baru."); return; }
         if (pwBaru.length < 6)   { showNotif(false, "Password minimal 6 karakter."); return; }
@@ -2682,6 +2697,7 @@
                 { label:"🔄 Sync Desa Surveyor",   desc:"Update akses desa surveyor",     color:"#0369a1", aksi:handleSyncDesa,       id:"syncDesa"        },
                 { label:"🗂️ Perbaiki Tanpa Folder", desc: (dataCheck?.tanpaFolder||0) + " masjid perlu diproses", color:dataCheck?.tanpaFolder>0?"#92400e":"#6b7280", aksi:handleProsesTanpaFolder, id:"prosesTanpaFolder" },
                 { label:"📄 Generate Ulang PDF",   desc: (dataCheck?.tanpaPdf||0) + " masjid belum ada PDF",     color:dataCheck?.tanpaPdf>0?"#5b21b6":"#6b7280",    aksi:handleRetryPdf,          id:"retrySemuaPdf"    },
+                { label:"🔁 Overwrite Semua PDF",   desc: "Regenerate PDF semua " + (dataCheck?.totalData||0) + " data",  color:"#0f766e",                                    aksi:handleOverwritePdf,      id:"overwriteSemuaPdf"},
                 { label:"🔧 Fix Status Stuck",       desc: (dataCheck?.statusStuck||0) + " data status tidak sinkron", color:dataCheck?.statusStuck>0?"#b45309":"#6b7280",  aksi:handleFixStatus,         id:"fixStatusStuck"   },
               ].map(a => (
                 <button key={a.id} onClick={a.aksi} disabled={loadingBtn===a.id}
@@ -2723,6 +2739,10 @@
               <button onClick={handleRetryPdf} disabled={!!loadingBtn || !dataCheck?.tanpaPdf}
                 style={C.btn(dataCheck?.tanpaPdf>0?"#5b21b6":"#9ca3af", !!loadingBtn || !dataCheck?.tanpaPdf)}>
                 {loadingBtn==="retrySemuaPdf"?"⏳ Generate PDF...":"📄 Generate Ulang Semua PDF"}
+              </button>
+              <button onClick={handleOverwritePdf} disabled={!!loadingBtn}
+                style={C.btn("#0f766e", !!loadingBtn)}>
+                {loadingBtn==="overwriteSemuaPdf"?"⏳ Overwrite PDF...":"🔁 Overwrite Semua PDF"}
               </button>
               <button onClick={handleFixStatus} disabled={!!loadingBtn || !dataCheck?.statusStuck}
                 style={C.btn(dataCheck?.statusStuck>0?"#b45309":"#9ca3af", !!loadingBtn || !dataCheck?.statusStuck)}>
