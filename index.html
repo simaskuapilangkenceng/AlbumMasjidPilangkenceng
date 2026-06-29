@@ -945,15 +945,19 @@
         ]},
         { judul:"🏠 Tanah & Wakaf", fields:[
           // ── v4.9: tambah "Tanah Kas Desa" ──
-          { label:"Status Tanah",      key:"statusTanah",     apiField:"STATUS_TANAH", type:"select",
+          { label:"Status Tanah",       key:"statusTanah",     apiField:"STATUS_TANAH", type:"select",
             options:["Wakaf Bersertifikat","Wakaf Belum Bersertifikat","SHM","Tanah Kas Desa"] },
-          { label:"No. Sertif. Wakaf", key:"nomorSertifWakaf",apiField:"NOMOR_SERTIF_WAKAF" },
-          { label:"Tgl. Sertif Wakaf", key:"tglSertifWakaf",  apiField:"TGL_SERTIF_WAKAF" },
-          { label:"No. AIW",           key:"nomorAIW",        apiField:"NOMOR_AIW" },
-          { label:"Tgl. AIW",          key:"tglAIW",          apiField:"TGL_AIW" },
-          { label:"Nama Wakif",        key:"namaWakif",       apiField:"NAMA_WAKIF" },
-          { label:"Nama Nadzir",       key:"namaNadzir",      apiField:"NAMA_NADZIR" },
-          { label:"Rekening Bantuan",  key:"rekening",        apiField:"REKENING" },
+          { label:"No. Sertif. Wakaf",  key:"nomorSertifWakaf",apiField:"NOMOR_SERTIF_WAKAF" },
+          { label:"Tgl. Sertif Wakaf",  key:"tglSertifWakaf",  apiField:"TGL_SERTIF_WAKAF" },
+          { label:"No. AIW",            key:"nomorAIW",        apiField:"NOMOR_AIW" },
+          { label:"Tgl. AIW",           key:"tglAIW",          apiField:"TGL_AIW" },
+          { label:"Nama Wakif",         key:"namaWakif",       apiField:"NAMA_WAKIF" },
+          { label:"Nama Nadzir",        key:"namaNadzir",      apiField:"NAMA_NADZIR" },
+          { label:"Wakaf Produktif",    key:"wakafProduktif",  apiField:"WAKAF_PRODUKTIF", type:"select",
+            options:["Ada","Tidak Ada"], hint:"Apakah ada kegiatan usaha/ekonomi produktif berbasis wakaf?" },
+          { label:"Usaha Produktif",    key:"usahaProduktif",  apiField:"USAHA_PRODUKTIF", full:true,
+            hint:"Jenis usaha produktif yang dijalankan (jika ada)" },
+          { label:"Rekening Bantuan",   key:"rekening",        apiField:"REKENING" },
         ]},
         { judul:"📞 Kontak", fields:[
           { label:"Email",       key:"email",  apiField:"EMAIL" },
@@ -1127,6 +1131,9 @@
                                   placeholder={f.placeholder || ""}
                                   style={{ ...inpStyle, borderColor:(values[f.key]||"") !== (masjid[f.key]||"") ? "#D4A853" : "#e2d9c8", background: f.superOnly ? "#fffbeb" : "white" }}
                                 />
+                              )}
+                              {f.hint && !fieldDisabled && (
+                                <div style={{ fontSize:11, color:"#9ca3af", marginTop:4, paddingLeft:2, fontStyle:"italic" }}>{f.hint}</div>
                               )}
                             </div>
                           );
